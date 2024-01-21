@@ -305,5 +305,5 @@ if __name__ == '__main__':
     pairs = [[0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
     task_queue = TaskQueue()
     for pair in pairs:
-        task_queue.add((grid_tuning_task, pair))
+        task_queue.add((grid_tuning_task, (pair, )))
     task_queue.run()

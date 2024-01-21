@@ -810,3 +810,11 @@ data_collect.py:280: DeprecationWarning: The 'warn' method is deprecated, use 'w
 2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
 2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
 2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+Traceback (most recent call last):
+  File "data_collect.py", line 309, in <module>
+    task_queue.run()
+  File "data_collect.py", line 301, in run
+    self._execute_task(task)
+  File "data_collect.py", line 293, in _execute_task
+    task_func(*task_args)
+TypeError: grid_tuning_task() takes from 0 to 1 positional arguments but 2 were given
