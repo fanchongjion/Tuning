@@ -9,13 +9,13 @@ from shutil import copyfile
 from logger import SingletonLogger
 
 class Tuner():
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, logger):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
         self.knobs_config_path = knobs_config_path
         self.knob_nums = knob_nums
         self.initialize_knobs()
         self.dbenv = dbenv
         self.bugets = bugets
-        self.logger = logger
+        self.logger = self.dbenv.logger
     def initialize_knobs(self):
         f = open(self.knobs_config_path)
         knob_tmp = json.load(f)
@@ -264,7 +264,7 @@ if __name__ == '__main__':
     #print(dbenv.step())
     #lhs_tuner = LHSTuner('./mysql_knobs.json', 2, None, 10)
     #res = lhs_tuner.lhs(1000)
-    grid_tuner = GridTuner('./mysql_knobs.json', 2, None, 10)
+    grid_tuner = GridTuner('./mysql_knobs.json', 2, dbenv, 10)
     #samples = grid_tuner.sampling(10)
     #print(res, len(res))
     logger = dbenv.logger
