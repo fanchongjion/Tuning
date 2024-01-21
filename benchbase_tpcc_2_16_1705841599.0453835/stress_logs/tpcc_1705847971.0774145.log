@@ -1,0 +1,64 @@
+[INFO ] 2024-01-21 14:39:31,439 [main]  com.oltpbenchmark.DBWorkload main - ======================================================================
+
+Benchmark:              TPCC {com.oltpbenchmark.benchmarks.tpcc.TPCCBenchmark}
+Configuration:          config/mysql/sample_tpcc_config.xml
+Type:                   MYSQL
+Driver:                 com.mysql.cj.jdbc.Driver
+URL:                    jdbc:mysql://localhost:3306/benchbase?rewriteBatchedStatements=true&sslMode=DISABLED
+Isolation:              TRANSACTION_SERIALIZABLE
+Batch Size:             128
+Scale Factor:           2.0
+Terminals:              16
+New Connection Per Txn: false
+
+[INFO ] 2024-01-21 14:39:31,440 [main]  com.oltpbenchmark.DBWorkload main - ======================================================================
+[DEBUG] 2024-01-21 14:39:31,459 [main]  com.oltpbenchmark.DBWorkload main - Using the following transaction types: [com.oltpbenchmark.api.TransactionType$Invalid/00, com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01, com.oltpbenchmark.benchmarks.tpcc.procedures.Payment/02, com.oltpbenchmark.benchmarks.tpcc.procedures.OrderStatus/03, com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery/04, com.oltpbenchmark.benchmarks.tpcc.procedures.StockLevel/05]
+[DEBUG] 2024-01-21 14:39:31,459 [main]  com.oltpbenchmark.DBWorkload main - Num groupings: 0
+[DEBUG] 2024-01-21 14:39:31,470 [main]  com.oltpbenchmark.DBWorkload main - Skipping creating benchmark database tables
+[DEBUG] 2024-01-21 14:39:31,675 [main]  com.oltpbenchmark.DBWorkload main - Skipping clearing benchmark database tables
+[DEBUG] 2024-01-21 14:39:31,675 [main]  com.oltpbenchmark.DBWorkload main - Skipping loading benchmark database records
+[DEBUG] 2024-01-21 14:39:31,675 [main]  com.oltpbenchmark.DBWorkload isBooleanOptionSet - CommandLine has option 'execute'. Checking whether set to true
+[DEBUG] 2024-01-21 14:39:31,675 [main]  com.oltpbenchmark.DBWorkload isBooleanOptionSet - CommandLine execute => true
+[INFO ] 2024-01-21 14:39:31,675 [main]  com.oltpbenchmark.DBWorkload runWorkload - Creating 16 virtual terminals...
+[INFO ] 2024-01-21 14:39:31,724 [main]  com.oltpbenchmark.DBWorkload runWorkload - Launching the TPCC Benchmark with 1 Phase...
+[INFO ] 2024-01-21 14:39:31,734 [main]  com.oltpbenchmark.ThreadBench runRateLimitedMultiPhase - [0;1mPHASE START[0;0m :: [Workload=TPCC] [Serial=false] [Time=60] [WarmupTime=0] [Rate=10000] [Arrival=REGULAR] [Ratios=[45.0, 43.0, 4.0, 4.0, 4.0]] [ActiveWorkers=16]
+[INFO ] 2024-01-21 14:39:31,734 [main]  com.oltpbenchmark.ThreadBench runRateLimitedMultiPhase - [0;1mMEASURE[0;0m :: Warmup complete, starting measurements.
+[INFO ] 2024-01-21 14:40:31,735 [main]  com.oltpbenchmark.ThreadBench runRateLimitedMultiPhase - [0;1mTERMINATE[0;0m :: Waiting for all terminals to finish ..
+[INFO ] 2024-01-21 14:40:31,847 [Thread-16]  com.oltpbenchmark.ThreadBench run - Starting WatchDogThread
+[INFO ] 2024-01-21 14:40:31,876 [main]  com.oltpbenchmark.DBWorkload runWorkload - ======================================================================
+[INFO ] 2024-01-21 14:40:31,876 [main]  com.oltpbenchmark.DBWorkload runWorkload - Rate limited reqs/s: Results(nanoSeconds=60000069903, measuredRequests=27435) = 457.24946728150815 requests/sec (throughput), 455.299469553353 requests/sec (goodput)
+[INFO ] 2024-01-21 14:40:31,888 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output Raw data into file: tpcc_2024-01-21_14-40-31.raw.csv
+[INFO ] 2024-01-21 14:40:32,109 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output samples into file: tpcc_2024-01-21_14-40-31.samples.csv
+[INFO ] 2024-01-21 14:40:32,130 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output summary data into file: tpcc_2024-01-21_14-40-31.summary.json
+[INFO ] 2024-01-21 14:40:32,139 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output DBMS parameters into file: tpcc_2024-01-21_14-40-31.params.json
+[INFO ] 2024-01-21 14:40:32,147 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output DBMS metrics into file: tpcc_2024-01-21_14-40-31.metrics.json
+[INFO ] 2024-01-21 14:40:32,151 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output benchmark config into file: tpcc_2024-01-21_14-40-31.config.xml
+[INFO ] 2024-01-21 14:40:32,176 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output results into file: tpcc_2024-01-21_14-40-31.results.csv with window size 5
+[INFO ] 2024-01-21 14:40:32,208 [main]  com.oltpbenchmark.DBWorkload writeHistograms - ======================================================================
+[INFO ] 2024-01-21 14:40:32,208 [main]  com.oltpbenchmark.DBWorkload writeHistograms - Workload Histograms:
+
+[0;1mCompleted Transactions:[0;0m
+com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01                         [12122] ********************************************************************************
+com.oltpbenchmark.benchmarks.tpcc.procedures.Payment/02                          [11837] ******************************************************************************
+com.oltpbenchmark.benchmarks.tpcc.procedures.OrderStatus/03                      [ 1117] *******
+com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery/04                         [ 1123] *******
+com.oltpbenchmark.benchmarks.tpcc.procedures.StockLevel/05                       [ 1119] *******
+
+[0;1mAborted Transactions:[0;0m
+com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01                         [ 133] ********************************************************************************
+
+[0;1mRejected Transactions (Server Retry):[0;0m
+com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01                         [   8] *************************
+com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery/04                         [  25] ********************************************************************************
+
+[0;1mRejected Transactions (Retry Different):[0;0m
+<EMPTY>
+
+[0;1mUnexpected SQL Errors:[0;0m
+<EMPTY>
+
+[0;1mUnknown Status Transactions:[0;0m
+<EMPTY>
+
+
+[INFO ] 2024-01-21 14:40:32,208 [main]  com.oltpbenchmark.DBWorkload writeHistograms - ======================================================================

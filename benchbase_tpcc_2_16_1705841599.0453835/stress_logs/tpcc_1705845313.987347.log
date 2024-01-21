@@ -1,0 +1,64 @@
+[INFO ] 2024-01-21 13:55:14,350 [main]  com.oltpbenchmark.DBWorkload main - ======================================================================
+
+Benchmark:              TPCC {com.oltpbenchmark.benchmarks.tpcc.TPCCBenchmark}
+Configuration:          config/mysql/sample_tpcc_config.xml
+Type:                   MYSQL
+Driver:                 com.mysql.cj.jdbc.Driver
+URL:                    jdbc:mysql://localhost:3306/benchbase?rewriteBatchedStatements=true&sslMode=DISABLED
+Isolation:              TRANSACTION_SERIALIZABLE
+Batch Size:             128
+Scale Factor:           2.0
+Terminals:              16
+New Connection Per Txn: false
+
+[INFO ] 2024-01-21 13:55:14,351 [main]  com.oltpbenchmark.DBWorkload main - ======================================================================
+[DEBUG] 2024-01-21 13:55:14,366 [main]  com.oltpbenchmark.DBWorkload main - Using the following transaction types: [com.oltpbenchmark.api.TransactionType$Invalid/00, com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01, com.oltpbenchmark.benchmarks.tpcc.procedures.Payment/02, com.oltpbenchmark.benchmarks.tpcc.procedures.OrderStatus/03, com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery/04, com.oltpbenchmark.benchmarks.tpcc.procedures.StockLevel/05]
+[DEBUG] 2024-01-21 13:55:14,367 [main]  com.oltpbenchmark.DBWorkload main - Num groupings: 0
+[DEBUG] 2024-01-21 13:55:14,374 [main]  com.oltpbenchmark.DBWorkload main - Skipping creating benchmark database tables
+[DEBUG] 2024-01-21 13:55:14,551 [main]  com.oltpbenchmark.DBWorkload main - Skipping clearing benchmark database tables
+[DEBUG] 2024-01-21 13:55:14,551 [main]  com.oltpbenchmark.DBWorkload main - Skipping loading benchmark database records
+[DEBUG] 2024-01-21 13:55:14,551 [main]  com.oltpbenchmark.DBWorkload isBooleanOptionSet - CommandLine has option 'execute'. Checking whether set to true
+[DEBUG] 2024-01-21 13:55:14,551 [main]  com.oltpbenchmark.DBWorkload isBooleanOptionSet - CommandLine execute => true
+[INFO ] 2024-01-21 13:55:14,551 [main]  com.oltpbenchmark.DBWorkload runWorkload - Creating 16 virtual terminals...
+[INFO ] 2024-01-21 13:55:14,597 [main]  com.oltpbenchmark.DBWorkload runWorkload - Launching the TPCC Benchmark with 1 Phase...
+[INFO ] 2024-01-21 13:55:14,608 [main]  com.oltpbenchmark.ThreadBench runRateLimitedMultiPhase - [0;1mPHASE START[0;0m :: [Workload=TPCC] [Serial=false] [Time=60] [WarmupTime=0] [Rate=10000] [Arrival=REGULAR] [Ratios=[45.0, 43.0, 4.0, 4.0, 4.0]] [ActiveWorkers=16]
+[INFO ] 2024-01-21 13:55:14,609 [main]  com.oltpbenchmark.ThreadBench runRateLimitedMultiPhase - [0;1mMEASURE[0;0m :: Warmup complete, starting measurements.
+[INFO ] 2024-01-21 13:56:14,609 [main]  com.oltpbenchmark.ThreadBench runRateLimitedMultiPhase - [0;1mTERMINATE[0;0m :: Waiting for all terminals to finish ..
+[INFO ] 2024-01-21 13:56:14,635 [Thread-16]  com.oltpbenchmark.ThreadBench run - Starting WatchDogThread
+[INFO ] 2024-01-21 13:56:14,659 [main]  com.oltpbenchmark.DBWorkload runWorkload - ======================================================================
+[INFO ] 2024-01-21 13:56:14,659 [main]  com.oltpbenchmark.DBWorkload runWorkload - Rate limited reqs/s: Results(nanoSeconds=60000009155, measuredRequests=29291) = 488.1832588447044 requests/sec (throughput), 486.3665924552307 requests/sec (goodput)
+[INFO ] 2024-01-21 13:56:14,669 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output Raw data into file: tpcc_2024-01-21_13-56-14.raw.csv
+[INFO ] 2024-01-21 13:56:14,894 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output samples into file: tpcc_2024-01-21_13-56-14.samples.csv
+[INFO ] 2024-01-21 13:56:14,928 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output summary data into file: tpcc_2024-01-21_13-56-14.summary.json
+[INFO ] 2024-01-21 13:56:14,938 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output DBMS parameters into file: tpcc_2024-01-21_13-56-14.params.json
+[INFO ] 2024-01-21 13:56:14,949 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output DBMS metrics into file: tpcc_2024-01-21_13-56-14.metrics.json
+[INFO ] 2024-01-21 13:56:14,952 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output benchmark config into file: tpcc_2024-01-21_13-56-14.config.xml
+[INFO ] 2024-01-21 13:56:14,980 [main]  com.oltpbenchmark.DBWorkload writeOutputs - Output results into file: tpcc_2024-01-21_13-56-14.results.csv with window size 5
+[INFO ] 2024-01-21 13:56:15,019 [main]  com.oltpbenchmark.DBWorkload writeHistograms - ======================================================================
+[INFO ] 2024-01-21 13:56:15,019 [main]  com.oltpbenchmark.DBWorkload writeHistograms - Workload Histograms:
+
+[0;1mCompleted Transactions:[0;0m
+com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01                         [12903] ********************************************************************************
+com.oltpbenchmark.benchmarks.tpcc.procedures.Payment/02                          [12751] *******************************************************************************
+com.oltpbenchmark.benchmarks.tpcc.procedures.OrderStatus/03                      [ 1174] *******
+com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery/04                         [ 1170] *******
+com.oltpbenchmark.benchmarks.tpcc.procedures.StockLevel/05                       [ 1184] *******
+
+[0;1mAborted Transactions:[0;0m
+com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01                         [ 124] ********************************************************************************
+
+[0;1mRejected Transactions (Server Retry):[0;0m
+com.oltpbenchmark.benchmarks.tpcc.procedures.NewOrder/01                         [   5] **************
+com.oltpbenchmark.benchmarks.tpcc.procedures.Delivery/04                         [  27] ********************************************************************************
+
+[0;1mRejected Transactions (Retry Different):[0;0m
+<EMPTY>
+
+[0;1mUnexpected SQL Errors:[0;0m
+<EMPTY>
+
+[0;1mUnknown Status Transactions:[0;0m
+<EMPTY>
+
+
+[INFO ] 2024-01-21 13:56:15,019 [main]  com.oltpbenchmark.DBWorkload writeHistograms - ======================================================================

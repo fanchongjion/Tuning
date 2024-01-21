@@ -1,0 +1,22 @@
+{
+ "scalefactor": "2",
+ "Current Timestamp (milliseconds)": 1705843330832,
+ "Benchmark Type": "tpcc",
+ "isolation": "TRANSACTION_SERIALIZABLE",
+ "DBMS Version": "5.7.44",
+ "Goodput (requests/second)": 536.965781890249,
+ "terminals": "16",
+ "DBMS Type": "MYSQL",
+ "Latency Distribution": {
+  "95th Percentile Latency (microseconds)": 85281,
+  "Maximum Latency (microseconds)": 200534,
+  "Median Latency (microseconds)": 21238,
+  "Minimum Latency (microseconds)": 565,
+  "25th Percentile Latency (microseconds)": 15409,
+  "90th Percentile Latency (microseconds)": 67432,
+  "99th Percentile Latency (microseconds)": 120932,
+  "75th Percentile Latency (microseconds)": 33382,
+  "Average Latency (microseconds)": 29668
+ },
+ "Throughput (requests/second)": 539.0824450692193
+}

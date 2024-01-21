@@ -7,11 +7,13 @@ import os
 import numpy as np
 from shutil import copyfile
 from logger import SingletonLogger
+import queue
 
 class Tuner():
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
         self.knobs_config_path = knobs_config_path
         self.knob_nums = knob_nums
+        self.knob_idxs = knob_idxs
         self.initialize_knobs()
         self.dbenv = dbenv
         self.bugets = bugets
@@ -19,19 +21,23 @@ class Tuner():
     def initialize_knobs(self):
         f = open(self.knobs_config_path)
         knob_tmp = json.load(f)
-        i = 0
         KNOB_DETAILS = {}
-        while i < self.knob_nums:
-            key = list(knob_tmp.keys())[i]
-            KNOB_DETAILS[key] = knob_tmp[key]
-            i = i + 1
-        KNOBS = list(KNOB_DETAILS.keys())
+        if not self.knob_idxs:
+            i = 0
+            while i < self.knob_nums:
+                key = list(knob_tmp.keys())[i]
+                KNOB_DETAILS[key] = knob_tmp[key]
+                i = i + 1
+        else:
+            for idx in self.knob_idxs:
+                key = list(knob_tmp.keys())[idx]
+                KNOB_DETAILS[key] = knob_tmp[key]
         f.close()
         self.knobs_detail = KNOB_DETAILS
 
 class LHSTuner(Tuner):
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
-        super().__init__(knobs_config_path, knob_nums, dbenv, bugets)
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
+        super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
         self.method = "LHS"
     def lhs(self, lhs_num):
             lhs_gen = LHSGenerator(lhs_num, self.knobs_detail)
@@ -43,8 +49,8 @@ class LHSTuner(Tuner):
         for knobs in knobs_set:
             self.dbenv.step(knobs)
 class GridTuner(Tuner):
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
-        super().__init__(knobs_config_path, knob_nums, dbenv, bugets)
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
+        super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
         self.method = "Grid"
 
     def _grid_search(self, params_list, results, current_params=None):
@@ -266,15 +272,38 @@ class MySQLEnv():
         else:
             pass
 
-if __name__ == '__main__':
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'tps', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
-    #print(dbenv.step())
-    #lhs_tuner = LHSTuner('./mysql_knobs.json', 2, None, 10)
-    #res = lhs_tuner.lhs(1000)
-    grid_tuner = GridTuner('/home/root3/Tuning//mysql_knobs.json', 2, dbenv, 10)
-    #samples = grid_tuner.sampling(10)
-    #print(res, len(res))
+def grid_tuning_task(knobs_idxs=None):
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    if not knobs_idxs:
+        grid_tuner = GridTuner('/home/root3/Tuning/mysql_knobs.json', 2, dbenv, 10)
+    else:
+        grid_tuner = GridTuner('/home/root3/Tuning/mysql_knobs.json', 2, dbenv, 10, knobs_idxs)
     logger = dbenv.logger
     logger.warn("grid tuning begin!!!")
     grid_tuner.tune()
     logger.warn("grid tuning over!!!")
+
+
+class TaskQueue():
+    def __init__(self, nums=-1):
+        self.queue = queue.Queue(nums)
+
+    def _execute_task(self, task):
+        task_func, task_args = task
+        task_func(*task_args)
+    
+    def add(self, task):
+        self.queue.put(task)
+    
+    def run(self):
+        while not self.queue.empty():
+            task = self.queue.get()
+            self._execute_task(task)
+    
+
+if __name__ == '__main__':
+    pairs = [[0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
+    task_queue = TaskQueue()
+    for pair in pairs:
+        task_queue.add((grid_tuning_task, pair))
+    task_queue.run()
