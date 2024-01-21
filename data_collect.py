@@ -6,6 +6,7 @@ import mysql.connector
 import os
 import numpy as np
 from shutil import copyfile
+from logger import SingletonLogger
 
 class Tuner():
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
@@ -102,6 +103,7 @@ class MySQLEnv():
         self.stress_logs = os.path.join(results_save_dir, 'stress_logs')
         os.mkdir(self.stress_results)
         os.mkdir(self.stress_logs)
+        self.logger = SingletonLogger(self.dbenv_log_path).logger
 
 
     def _start_mysqld(self):
@@ -109,20 +111,27 @@ class MySQLEnv():
         self.pid = proc.pid
         count = 0
         start_sucess = True
+        self.logger.info('wait for connection')
         time.sleep(1)
         while True:
             try:
                 conn = mysql.connector.connect(host=self.host, user=self.user, passwd=self.passwd, db=self.dbname)
                 if conn.is_connected():
                     conn.close()
+                    self.logger.info('Connected to MySQL database')
+                    self.logger.info('mysql is ready!')
+                    self.dbsize = self.get_db_size()
+                    self.logger.info(f"{self.workload} database size now is {self.dbsize} MB")
                     break
             except Exception as e:
                 print(e)
 
             time.sleep(1)
             count = count + 1
+            self.logger.warn("retry connect to DB")
             if count > 600:
                 start_sucess = False
+                self.logger.error("can not connect to DB")
                 break
 
         return start_sucess
@@ -130,6 +139,7 @@ class MySQLEnv():
     def _kill_mysqld(self):
         #os.system(f"kill -9 {self.pid}")
         os.system("ps aux | grep mysqld | awk '{print $2}'|xargs kill -9")
+        self.logger.info("mysql is shut down")
     
     def get_db_size(self):
         db_conn = mysql.connector.connect(host=self.host, user=self.user, passwd=self.passwd, db=self.dbname)
@@ -153,6 +163,7 @@ class MySQLEnv():
         strs = '\n'.join(contents)
         with open(self.real_cnf_path, 'w') as f:
             f.write(strs)
+        self.logger.info("replace mysql cnf file")
 
     def apply_knobs(self, knobs=None):
         self._kill_mysqld()
@@ -183,6 +194,7 @@ class MySQLEnv():
             for file in files:
                 if not file.endswith("summary.json"):
                     os.remove(os.path.join(self.stress_results, file))
+
             files = [file for file in files if file.endswith("summary.json")]
             files = sorted(files)
             return os.path.join(self.stress_results, files[-1])
@@ -192,33 +204,46 @@ class MySQLEnv():
 
     def get_metrics(self):
         cmd = self.get_workload_info()
-        print(cmd)
+        self.logger.info(f"get workload stress test cmd: {cmd}")
+        self.logger.info("begin workload stress test")
         p_benchmark = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE, close_fds=True)
         try:
             outs, errs = p_benchmark.communicate(timeout=self.stress_test_duration + self.tolerance_time)
             ret_code = p_benchmark.poll()
             if ret_code == 0:
-                print("[{}] benchmark finished!".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
+                self.logger.info("benchmark finished!")
         except subprocess.TimeoutExpired:
-            print("[{}] benchmark timeout!".format(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())))
-            pass
+            self.logger.info("benchmark timeout!")
+            return None
+
+        self.logger.info("clean extra files and get metrics file path")
         outfile_path = self.clean_and_find()
+        self.logger.info("parser metrics file")
         metrics = self.parser_metrics(outfile_path)
         return metrics
 
     def step(self, knobs=None):
+        self.logger.info("round begin!!!")
+        self.logger.info(f"ready to apply new knobs: {knobs}")
         flag = self.apply_knobs(knobs)
+        self.logger.info("apply new knobs success")
         metrics = self.get_metrics()
+        if metrics == None:
+            self.logger.error("this round stress test fail")
+            self.logger.info("round over!!!")
+            return
         try:
             if self.workload.startswith("benchbase"):
                 metrics['knobs'] = knobs
+                metrics['dbsize'] = self.dbsize
             else:
                 pass
         except Exception as e:
             print(e)
         
         self.save_running_res(metrics)
-    
+        self.logger.info(f"save running res to {self.metric_save_path}")
+        self.logger.info("round over!!!")
     def save_running_res(self, metrics):
         if self.workload.startswith("benchbase"):
             save_info = json.dumps(metrics)
@@ -228,10 +253,10 @@ class MySQLEnv():
             pass
 
 if __name__ == '__main__':
-    #dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_200_16', 'tps', 60, 'template.cnf', '/home/root3/mysql/my.cnf')
-    #print(dbenv.step())
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_200_16', 'tps', 60, 'template.cnf', '/home/root3/mysql/my.cnf')
+    print(dbenv.step())
     #lhs_tuner = LHSTuner('./mysql_knobs.json', 2, None, 10)
     #res = lhs_tuner.lhs(1000)
-    grid_tuner = GridTuner('./mysql_knobs.json', 2, None, 10)
-    res = grid_tuner.sampling(10)
-    print(res, len(res))
+    #grid_tuner = GridTuner('./mysql_knobs.json', 2, None, 10)
+    #res = grid_tuner.sampling(10)
+    #print(res, len(res))
