@@ -1,5 +1,5 @@
 {
-    "benchbase_tpcc_200_16" : {
+    "benchbase_tpcc_2_16" : {
         "cmd" : "/home/root3/Tuning/run_benchbase.sh tpcc {0} {1} {2}"
     }
 }

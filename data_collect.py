@@ -9,12 +9,13 @@ from shutil import copyfile
 from logger import SingletonLogger
 
 class Tuner():
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, logger):
         self.knobs_config_path = knobs_config_path
         self.knob_nums = knob_nums
         self.initialize_knobs()
         self.dbenv = dbenv
         self.bugets = bugets
+        self.logger = logger
     def initialize_knobs(self):
         f = open(self.knobs_config_path)
         knob_tmp = json.load(f)
@@ -29,7 +30,7 @@ class Tuner():
         self.knobs_detail = KNOB_DETAILS
 
 class LHSTuner(Tuner):
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, logger):
         super().__init__(knobs_config_path, knob_nums, dbenv, bugets)
         self.method = "LHS"
     def lhs(self, lhs_num):
@@ -42,7 +43,7 @@ class LHSTuner(Tuner):
         for knobs in knobs_set:
             self.dbenv.step(knobs)
 class GridTuner(Tuner):
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, logger):
         super().__init__(knobs_config_path, knob_nums, dbenv, bugets)
         self.method = "Grid"
 
@@ -74,8 +75,14 @@ class GridTuner(Tuner):
     def tune(self, interval=10):
         self.dbenv.step(None)
         knobs_set = self.sampling(interval)
-        for knobs in knobs_set:
+        keys = self.knobs_detail.keys()
+        for rd, ss in enumerate(knobs_set):
+            self.logger.info(f"tuning round {rd} begin!!")
+            knobs = {}
+            for i in range(len(keys)):
+                knobs[keys[i]] = ss[i]
             self.dbenv.step(knobs)
+            self.logger.info(f"tuning round {rd} over!!")
                 
 
 class MySQLEnv():
@@ -97,7 +104,7 @@ class MySQLEnv():
         self.timestamp = time.time()    
         results_save_dir = f"/home/root3/Tuning/{self.workload}_{self.timestamp}"
         os.mkdir(results_save_dir)
-        self.metric_save_path = os.path.join(results_save_dir, 'results.res')
+        self.metric_save_path = os.path.join(results_save_dir, f'results_{self.objective}.res')
         self.dbenv_log_path = os.path.join(results_save_dir, 'dbenv.log')
         self.stress_results = os.path.join(results_save_dir, 'stress_results')
         self.stress_logs = os.path.join(results_save_dir, 'stress_logs')
@@ -253,10 +260,14 @@ class MySQLEnv():
             pass
 
 if __name__ == '__main__':
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_200_16', 'tps', 60, 'template.cnf', '/home/root3/mysql/my.cnf')
-    print(dbenv.step())
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'tps', 60, 'template.cnf', '/home/root3/mysql/my.cnf')
+    #print(dbenv.step())
     #lhs_tuner = LHSTuner('./mysql_knobs.json', 2, None, 10)
     #res = lhs_tuner.lhs(1000)
-    #grid_tuner = GridTuner('./mysql_knobs.json', 2, None, 10)
-    #res = grid_tuner.sampling(10)
+    grid_tuner = GridTuner('./mysql_knobs.json', 2, None, 10)
+    #samples = grid_tuner.sampling(10)
     #print(res, len(res))
+    logger = dbenv.logger
+    logger.warn("grid tuning begin!!!")
+    grid_tuner.tune()
+    logger.warn("grid tuning over!!!")
