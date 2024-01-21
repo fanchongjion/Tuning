@@ -119,7 +119,7 @@ class MySQLEnv():
     def _start_mysqld(self):
         proc = subprocess.Popen(['mysqld', '--defaults-file={}'.format(self.real_cnf_path)])
         self.pid = proc.pid
-        print("pid", self.pid)
+        #print("pid", self.pid)
         count = 0
         start_sucess = True
         self.logger.info('wait for connection')
@@ -180,7 +180,7 @@ class MySQLEnv():
     def apply_knobs(self, knobs=None):
         self._kill_mysqld()
         self.replace_mycnf(knobs)
-        time.sleep(5)
+        time.sleep(10)
         success = self._start_mysqld()
         return success
     
@@ -260,8 +260,9 @@ class MySQLEnv():
     def save_running_res(self, metrics):
         if self.workload.startswith("benchbase"):
             save_info = json.dumps(metrics)
-            with open(self.metric_save_path, 'w+') as f:
+            with open(self.metric_save_path, 'a+') as f:
                 f.write(save_info + '\n')
+                f.flush()
         else:
             pass
 
