@@ -4,6 +4,7 @@ import subprocess
 import time
 import mysql.connector
 import os
+import numpy as np
 from shutil import copyfile
 
 class Tuner():
@@ -39,7 +40,42 @@ class LHSTuner(Tuner):
         knobs_set = self.lhs(self.bugets)
         for knobs in knobs_set:
             self.dbenv.step(knobs)
+class GridTuner(Tuner):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
+        super().__init__(knobs_config_path, knob_nums, dbenv, bugets)
+        self.method = "Grid"
 
+    def _grid_search(self, params_list, results, current_params=None):
+        if current_params is None:
+            current_params = []
+        if not params_list:
+            return current_params
+        current_dimension = params_list[0]
+        for value in current_dimension:
+            result = self._grid_search(params_list[1:], results, current_params + [value])
+            if result:
+                results.append(result)
+    
+    def sampling(self, interval):
+        knobs_list = []
+        for knob_name in self.knobs_detail.keys():
+            type = self.knobs_detail[knob_name]["type"]
+            if type == "integer":
+                minv = self.knobs_detail[knob_name]["min"]
+                maxv = self.knobs_detail[knob_name]["max"]
+                knobs_list.append(list(np.linspace(minv, maxv, interval, dtype=np.int32)))
+            else:
+                knobs_list.append(self.knobs_detail[knob_name]["enum_values"])
+        results = []
+        self._grid_search(knobs_list, results)
+        return results
+    
+    def tune(self, interval=10):
+        self.dbenv.step(None)
+        knobs_set = self.sampling(interval)
+        for knobs in knobs_set:
+            self.dbenv.step(knobs)
+                
 
 class MySQLEnv():
     def __init__(self, host, user, passwd, dbname, workload, objective, stress_test_duration, template_cnf_path, real_cnf_path):
@@ -192,8 +228,10 @@ class MySQLEnv():
             pass
 
 if __name__ == '__main__':
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_200_16', 'tps', 60, 'template.cnf', '/home/root3/mysql/my.cnf')
-    print(dbenv.step())
-    #lhs_tuner = LHSTuner('./knob_configs/SYSBENCH_shap.json', 60)
-    #res = lhs_tuner.tune()
-    #print(res)
+    #dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_200_16', 'tps', 60, 'template.cnf', '/home/root3/mysql/my.cnf')
+    #print(dbenv.step())
+    #lhs_tuner = LHSTuner('./mysql_knobs.json', 2, None, 10)
+    #res = lhs_tuner.lhs(1000)
+    grid_tuner = GridTuner('./mysql_knobs.json', 2, None, 10)
+    res = grid_tuner.sampling(10)
+    print(res, len(res))
