@@ -30,7 +30,7 @@ class Tuner():
         self.knobs_detail = KNOB_DETAILS
 
 class LHSTuner(Tuner):
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, logger):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
         super().__init__(knobs_config_path, knob_nums, dbenv, bugets)
         self.method = "LHS"
     def lhs(self, lhs_num):
@@ -43,7 +43,7 @@ class LHSTuner(Tuner):
         for knobs in knobs_set:
             self.dbenv.step(knobs)
 class GridTuner(Tuner):
-    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, logger):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets):
         super().__init__(knobs_config_path, knob_nums, dbenv, bugets)
         self.method = "Grid"
 
@@ -75,14 +75,17 @@ class GridTuner(Tuner):
     def tune(self, interval=10):
         self.dbenv.step(None)
         knobs_set = self.sampling(interval)
-        keys = self.knobs_detail.keys()
+        keys = list(self.knobs_detail.keys())
         for rd, ss in enumerate(knobs_set):
-            self.logger.info(f"tuning round {rd} begin!!")
+            self.logger.info(f"tuning round {rd + 1} begin!!")
             knobs = {}
             for i in range(len(keys)):
-                knobs[keys[i]] = ss[i]
+                if isinstance(ss[i], np.integer):
+                    knobs[keys[i]] = int(ss[i])
+                else:
+                    knobs[keys[i]] = ss[i]
             self.dbenv.step(knobs)
-            self.logger.info(f"tuning round {rd} over!!")
+            self.logger.info(f"tuning round {rd + 1} over!!")
                 
 
 class MySQLEnv():
@@ -116,6 +119,7 @@ class MySQLEnv():
     def _start_mysqld(self):
         proc = subprocess.Popen(['mysqld', '--defaults-file={}'.format(self.real_cnf_path)])
         self.pid = proc.pid
+        print("pid", self.pid)
         count = 0
         start_sucess = True
         self.logger.info('wait for connection')
@@ -145,7 +149,7 @@ class MySQLEnv():
     
     def _kill_mysqld(self):
         #os.system(f"kill -9 {self.pid}")
-        os.system("ps aux | grep mysqld | awk '{print $2}'|xargs kill -9")
+        os.system("ps aux | grep mysqld | grep my.cnf | awk '{print $2}'|xargs kill -9")
         self.logger.info("mysql is shut down")
     
     def get_db_size(self):
@@ -170,11 +174,13 @@ class MySQLEnv():
         strs = '\n'.join(contents)
         with open(self.real_cnf_path, 'w') as f:
             f.write(strs)
+            f.flush()
         self.logger.info("replace mysql cnf file")
 
     def apply_knobs(self, knobs=None):
         self._kill_mysqld()
         self.replace_mycnf(knobs)
+        time.sleep(5)
         success = self._start_mysqld()
         return success
     
@@ -260,11 +266,11 @@ class MySQLEnv():
             pass
 
 if __name__ == '__main__':
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'tps', 60, 'template.cnf', '/home/root3/mysql/my.cnf')
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'tps', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
     #print(dbenv.step())
     #lhs_tuner = LHSTuner('./mysql_knobs.json', 2, None, 10)
     #res = lhs_tuner.lhs(1000)
-    grid_tuner = GridTuner('./mysql_knobs.json', 2, dbenv, 10)
+    grid_tuner = GridTuner('/home/root3/Tuning//mysql_knobs.json', 2, dbenv, 10)
     #samples = grid_tuner.sampling(10)
     #print(res, len(res))
     logger = dbenv.logger
