@@ -155,8 +155,19 @@ class MySQLEnv():
         return start_sucess
     
     def _kill_mysqld(self):
-        #os.system(f"kill -9 {self.pid}")
-        os.system("ps aux | grep mysqld | grep my.cnf | awk '{print $2}'|xargs kill -9")
+        mysqladmin = "/home/root3/mysql/bin/mysqladmin"
+        sock = "/home/root3/mysql/mysql.sock"
+        cmd = '{} -u{} -S {} shutdown'.format(mysqladmin, self.user, sock)
+        p_close = subprocess.Popen(cmd, shell=True, stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
+                                       close_fds=True)
+        try:
+            outs, errs = p_close.communicate(timeout=20)
+            ret_code = p_close.poll()
+            if ret_code == 0:
+                self.logger.info("mysqladmin close database successfully")
+        except:
+            self.logger.warn("force close database by kill -9!!!")
+            os.system("ps aux | grep mysqld | grep my.cnf | awk '{print $2}'|xargs kill -9")
         self.logger.info("mysql is shut down")
     
     def get_db_size(self):
@@ -237,8 +248,8 @@ class MySQLEnv():
             ret_code = p_benchmark.poll()
             if ret_code == 0:
                 self.logger.info("benchmark finished!")
-        except subprocess.TimeoutExpired:
-            self.logger.info("benchmark timeout!")
+        except Exception as e: 
+            self.logger.info(f"{e}")
             return None
 
         self.logger.info("clean extra files and get metrics file path")
@@ -281,7 +292,7 @@ class MySQLEnv():
             pass
 
 def grid_tuning_task(knobs_idxs=None):
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
     if not knobs_idxs:
         grid_tuner = GridTuner('/home/root3/Tuning/mysql_knobs.json', 2, dbenv, 10)
     else:
@@ -292,8 +303,8 @@ def grid_tuning_task(knobs_idxs=None):
     logger.warn("grid tuning over!!!")
 
 def lhs_tuning_task():
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
-    lhs_tuner = LHSTuner('/home/root3/Tuning/mysql_knobs.json', 60, dbenv, 1000)
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    lhs_tuner = LHSTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 1000)
     logger = dbenv.logger
     logger.warn("lhs tuning begin!!!")
     lhs_tuner.tune()
