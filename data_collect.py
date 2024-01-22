@@ -213,7 +213,7 @@ class MySQLEnv():
         if self.workload.startswith("benchbase"):
             info_files = [file for file in files if file.endswith("samples.csv")]
             info_file = sorted(info_files)[-1]
-            df = pd.read_csv(info_file)
+            df = pd.read_csv(os.path.join(self.stress_results, info_file))
             self.tps_std = df["Throughput (requests/second)"].std()
             self.lat_std = df["95th Percentile Latency (microseconds)"].std()
             for file in files:

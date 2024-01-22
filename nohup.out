@@ -3774,3 +3774,39 @@ data_collect.py:284: DeprecationWarning: The 'warn' method is deprecated, use 'w
 2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
 2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
 2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+data_collect.py:298: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  logger.warn("lhs tuning begin!!!")
+Traceback (most recent call last):
+  File "data_collect.py", line 330, in <module>
+    task_queue.run()
+  File "data_collect.py", line 317, in run
+    self._execute_task(task)
+  File "data_collect.py", line 309, in _execute_task
+    task_func(*task_args)
+  File "data_collect.py", line 299, in lhs_tuning_task
+    lhs_tuner.tune()
+  File "data_collect.py", line 48, in tune
+    self.dbenv.step(None)
+  File "data_collect.py", line 255, in step
+    metrics = self.get_metrics()
+  File "data_collect.py", line 245, in get_metrics
+    outfile_path = self.clean_and_find()
+  File "data_collect.py", line 216, in clean_and_find
+    df = pd.read_csv(info_file)
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/util/_decorators.py", line 311, in wrapper
+    return func(*args, **kwargs)
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/io/parsers/readers.py", line 586, in read_csv
+    return _read(filepath_or_buffer, kwds)
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/io/parsers/readers.py", line 482, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/io/parsers/readers.py", line 811, in __init__
+    self._engine = self._make_engine(self.engine)
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/io/parsers/readers.py", line 1040, in _make_engine
+    return mapping[engine](self.f, **self.options)  # type: ignore[call-arg]
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/io/parsers/c_parser_wrapper.py", line 51, in __init__
+    self._open_handles(src, kwds)
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/io/parsers/base_parser.py", line 229, in _open_handles
+    errors=kwds.get("encoding_errors", "strict"),
+  File "/home/root3/anaconda3/envs/exp/lib/python3.7/site-packages/pandas/io/common.py", line 707, in get_handle
+    newline="",
+FileNotFoundError: [Errno 2] No such file or directory: 'tpcc_2024-01-22_07-01-43.samples.csv'
