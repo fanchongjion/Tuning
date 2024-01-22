@@ -9,6 +9,8 @@ from shutil import copyfile
 from logger import SingletonLogger
 import queue
 import pandas as pd
+import tensorboard
+from torch.utils.tensorboard import SummaryWriter 
 
 class Tuner():
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
@@ -96,13 +98,14 @@ class GridTuner(Tuner):
                 
 
 class MySQLEnv():
-    def __init__(self, host, user, passwd, dbname, workload, objective, stress_test_duration, template_cnf_path, real_cnf_path):
+    def __init__(self, host, user, passwd, dbname, workload, objective, method, stress_test_duration, template_cnf_path, real_cnf_path):
         self.host = host
         self.user = user
         self.passwd = passwd
         self.dbname = dbname
         self.workload = workload
         self.objective = objective
+        self.method = method
         self.stress_test_duration = stress_test_duration
         self.template_cnf_path = template_cnf_path
         self.real_cnf_path = real_cnf_path
@@ -118,10 +121,15 @@ class MySQLEnv():
         self.dbenv_log_path = os.path.join(results_save_dir, 'dbenv.log')
         self.stress_results = os.path.join(results_save_dir, 'stress_results')
         self.stress_logs = os.path.join(results_save_dir, 'stress_logs')
+        self.tensorboard_logs = os.path.join("/home/root3/Tuning", 'tb_logs')
         os.mkdir(self.stress_results)
         os.mkdir(self.stress_logs)
         self.logger = SingletonLogger(self.dbenv_log_path).logger
-
+        self.writer = SummaryWriter(log_dir=self.tensorboard_logs, flush_secs=10)
+        self.perfs = {}
+        self.round = 0
+        self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = None, None, None
+        self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = None, None, None
 
     def _start_mysqld(self):
         proc = subprocess.Popen(['mysqld', '--defaults-file={}'.format(self.real_cnf_path)])
@@ -259,7 +267,7 @@ class MySQLEnv():
         return metrics
 
     def step(self, knobs=None):
-        self.logger.info("round begin!!!")
+        self.logger.info(f"round {self.round} begin!!!")
         self.logger.info(f"ready to apply new knobs: {knobs}")
         flag = self.apply_knobs(knobs)
         self.logger.info("apply new knobs success")
@@ -274,6 +282,25 @@ class MySQLEnv():
                 metrics["lat95_std"] = self.lat_std
                 metrics['knobs'] = knobs
                 metrics['dbsize'] = self.dbsize
+                if self.objective == "all":
+                    tmp_tps = metrics["Throughput (requests/second)"]
+                    tmp_lat = metrics["Latency Distribution"]["95th Percentile Latency (microseconds)"]
+                    if not self.perfs['cur_tps']:
+                        self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = tmp_tps, tmp_tps, tmp_tps
+                    else:
+                        self.perfs['cur_tps'] = tmp_tps
+                        self.perfs['best_tps'] = max(tmp_tps, self.perfs['best_tps'])
+
+                    if not self.perfs['cur_lat']:
+                        self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = tmp_lat, tmp_lat, tmp_lat
+                    else:
+                        self.perfs['cur_lat'] = tmp_lat
+                        self.perfs['best_lat'] = min(tmp_lat, self.perfs['best_lat'])
+                        
+                    self.writer.add_scalars(f"tps_{self.workload}_{self.timestamp}_{self.method}" , {'cur': self.perfs['cur_tps'], 'best': self.perfs['best_tps'], 'default': self.perfs['default_tps']}, self.round)
+                    self.writer.add_scalars(f"lat_{self.workload}_{self.timestamp}_{self.method}" , {'cur': self.perfs['cur_lat'], 'best': self.perfs['best_lat'], 'default': self.perfs['default_lat']}, self.round)
+                else:
+                    pass
             else:
                 pass
         except Exception as e:
@@ -281,7 +308,9 @@ class MySQLEnv():
         
         self.save_running_res(metrics)
         self.logger.info(f"save running res to {self.metric_save_path}")
-        self.logger.info("round over!!!")
+        self.logger.info(f"round {self.round} over!!!")
+        self.round += 1
+
     def save_running_res(self, metrics):
         if self.workload.startswith("benchbase"):
             save_info = json.dumps(metrics)
@@ -292,7 +321,7 @@ class MySQLEnv():
             pass
 
 def grid_tuning_task(knobs_idxs=None):
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'all', 'grid', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
     if not knobs_idxs:
         grid_tuner = GridTuner('/home/root3/Tuning/mysql_knobs.json', 2, dbenv, 10)
     else:
@@ -303,7 +332,7 @@ def grid_tuning_task(knobs_idxs=None):
     logger.warn("grid tuning over!!!")
 
 def lhs_tuning_task():
-    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'all', 'lhs', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
     lhs_tuner = LHSTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 1000)
     logger = dbenv.logger
     logger.warn("lhs tuning begin!!!")
