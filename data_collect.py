@@ -8,6 +8,7 @@ import numpy as np
 from shutil import copyfile
 from logger import SingletonLogger
 import queue
+import pandas as pd
 
 class Tuner():
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
@@ -210,6 +211,11 @@ class MySQLEnv():
     def clean_and_find(self):
         files = os.listdir(self.stress_results)
         if self.workload.startswith("benchbase"):
+            info_files = [file for file in files if file.endswith("samples.csv")]
+            info_file = sorted(info_files)[-1]
+            df = pd.read_csv(info_file)
+            self.tps_std = df["Throughput (requests/second)"].std()
+            self.lat_std = df["95th Percentile Latency (microseconds)"].std()
             for file in files:
                 if not file.endswith("summary.json"):
                     os.remove(os.path.join(self.stress_results, file))
@@ -253,6 +259,8 @@ class MySQLEnv():
             return
         try:
             if self.workload.startswith("benchbase"):
+                metrics["tps_std"] = self.tps_std
+                metrics["lat95_std"] = self.lat_std
                 metrics['knobs'] = knobs
                 metrics['dbsize'] = self.dbsize
             else:
@@ -283,6 +291,14 @@ def grid_tuning_task(knobs_idxs=None):
     grid_tuner.tune()
     logger.warn("grid tuning over!!!")
 
+def lhs_tuning_task():
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_2_16', 'all', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    lhs_tuner = LHSTuner('/home/root3/Tuning/mysql_knobs.json', 60, dbenv, 1000)
+    logger = dbenv.logger
+    logger.warn("lhs tuning begin!!!")
+    lhs_tuner.tune()
+    logger.warn("lhs tuning over!!!")
+
 
 class TaskQueue():
     def __init__(self, nums=-1):
@@ -302,8 +318,13 @@ class TaskQueue():
     
 
 if __name__ == '__main__':
-    pairs = [[0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
+    # GridSearch
+    # pairs = [[0, 2], [0, 3], [1, 2], [1, 3], [2, 3]]
+    # task_queue = TaskQueue()
+    # for pair in pairs:
+    #     task_queue.add((grid_tuning_task, (pair, )))
+    # task_queue.run()
+    # LHS
     task_queue = TaskQueue()
-    for pair in pairs:
-        task_queue.add((grid_tuning_task, (pair, )))
+    task_queue.add((lhs_tuning_task, ()))
     task_queue.run()
