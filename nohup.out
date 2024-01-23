@@ -4930,3 +4930,407 @@ Traceback (most recent call last):
   File "data_collect.py", line 215, in clean_and_find
     info_file = sorted(info_files)[-1]
 IndexError: list index out of range
+data_collect.py:338: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  logger.warn("lhs tuning begin!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:177: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("force close database by kill -9!!!")
+data_collect.py:157: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  self.logger.warn("retry connect to DB")
+data_collect.py:340: DeprecationWarning: The 'warn' method is deprecated, use 'warning' instead
+  logger.warn("lhs tuning over!!!")
+
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)
+2003 (HY000): Can't connect to MySQL server on 'localhost:3306' (111)

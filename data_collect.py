@@ -10,7 +10,44 @@ from logger import SingletonLogger
 import queue
 import pandas as pd
 import tensorboard
+import torch
 from torch.utils.tensorboard import SummaryWriter 
+from botorch.models import SingleTaskGP
+from botorch.fit import fit_gpytorch_model
+from gpytorch.mlls import ExactMarginalLogLikelihood
+from botorch.acquisition import UpperConfidenceBound, ExpectedImprovement
+from botorch.optim import optimize_acqf
+
+def transform_knobs2vector(knobs_detail, knobs):
+    keys = list(knobs.keys())
+    ys = []
+    for key in keys:
+        if knobs_detail[key]['type'] == 'integer':
+            minv, maxv = knobs_detail[key]['min'], knobs_detail[key]['max']
+            tmpv = (knobs[key] - minv) / (maxv - minv)
+            ys.append(tmpv)
+        elif knobs_detail[key]['type'] == 'enum':
+            enum_vs = knobs_detail[key]['enum_values']
+            tmpv = enum_vs.index(knobs[key]) / (len(enum_vs) - 1)
+            ys.append(tmpv)
+        else:
+            pass
+    return ys
+def transform_vector2knobs(knobs_detail, vector):
+    keys = list(knobs_detail.keys())
+    knobs = {}
+    for i in range(len(keys)):
+        if knobs_detail[keys[i]]['type'] == 'integer':
+            minv, maxv = knobs_detail[keys[i]]['min'], knobs_detail[keys[i]]['max']
+            tmpv = (maxv - minv) * float(vector[i]) + minv
+            knobs[keys[i]] = int(tmpv)
+        elif knobs_detail[keys[i]]['type'] == 'enum':
+            enum_vs = knobs_detail[keys[i]]['enum_values']
+            tmpv = vector[i] * (len(enum_vs) - 1)
+            knobs[keys[i]] = enum_vs[int(tmpv)]
+        else:
+            pass
+    return knobs
 
 class Tuner():
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
@@ -20,7 +57,7 @@ class Tuner():
         self.initialize_knobs()
         self.dbenv = dbenv
         self.bugets = bugets
-        self.logger = self.dbenv.logger
+        self.logger = None if not self.dbenv else self.dbenv.logger
     def initialize_knobs(self):
         f = open(self.knobs_config_path)
         knob_tmp = json.load(f)
@@ -95,7 +132,64 @@ class GridTuner(Tuner):
                     knobs[keys[i]] = ss[i]
             self.dbenv.step(knobs)
             self.logger.info(f"tuning round {rd + 1} over!!")
-                
+
+class GPTuner(Tuner):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None, objective='lat', warm_start_times=20):
+        super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
+        self.method = "GP"
+        self.objective = objective
+        self.warm_start_times = warm_start_times
+    
+    def lhs(self, lhs_num):
+        lhs_gen = LHSGenerator(lhs_num, self.knobs_detail)
+        lhs_configs = lhs_gen.generate_results()
+        return lhs_configs
+
+    def _get_next_point(self):
+        data_file = self.dbenv.metric_save_path
+        f = open(data_file, 'r')
+        lines = f.readlines()
+        f.close()
+        train_X, train_Y = [], []
+        for line in lines[1:]:
+            line = eval(line)
+            knobs = line['knobs']
+            metric = line['Latency Distribution']['95th Percentile Latency (microseconds)'] if self.objective == 'lat' \
+                     else line['Throughput (requests/second)']
+            train_X.append(transform_knobs2vector(self.knobs_detail, knobs))
+            train_Y.append([metric])
+        train_X = torch.tensor(train_X, dtype=torch.float64)
+        train_Y = torch.tensor(train_Y, dtype=torch.float64)
+        gp = SingleTaskGP(train_X, train_Y)
+        mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+        fit_gpytorch_model(mll)
+        train_X = torch.tensor(train_X, dtype=torch.float64)
+        train_Y = torch.tensor(train_Y, dtype=torch.float64)
+        gp = SingleTaskGP(train_X, train_Y)
+        mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+        fit_gpytorch_model(mll)
+        UCB = UpperConfidenceBound(gp, beta=0.1, maximize=False if self.objective == 'lat' else True)
+        #EI = ExpectedImprovement(gp, best_f=train_Y.max())
+        bounds = torch.stack([torch.zeros(self.knob_nums), torch.ones(self.knob_nums)])
+        candidate, acq_value = optimize_acqf(
+            UCB, bounds=bounds, q=1, num_restarts=5, raw_samples=20,
+        )
+        knobs = transform_vector2knobs(self.knobs_detail, candidate[0])
+        
+        return knobs
+    def tune(self):
+        self.dbenv.step(None)
+        knobs_set = self.lhs(self.warm_start_times)
+        self.logger.info("warm start begin!!!")
+        for knobs in knobs_set:
+            self.dbenv.step(knobs)
+        self.logger.info("warm start over!!!")
+        for _ in range(self.bugets - self.warm_start_times):
+            now = time.time()
+            knobs = self._get_next_point()
+            self.logger.info(f"recommend next knobs spent {time.time() - now}s")
+            self.dbenv.step(knobs)
+
 
 class MySQLEnv():
     def __init__(self, host, user, passwd, dbname, workload, objective, method, stress_test_duration, template_cnf_path, real_cnf_path):
@@ -340,6 +434,9 @@ def lhs_tuning_task():
     logger.warn("lhs tuning over!!!")
 
 
+def gp_tuning_task():
+    pass
+
 class TaskQueue():
     def __init__(self, nums=-1):
         self.queue = queue.Queue(nums)
@@ -365,6 +462,34 @@ if __name__ == '__main__':
     #     task_queue.add((grid_tuning_task, (pair, )))
     # task_queue.run()
     # LHS
-    task_queue = TaskQueue()
-    task_queue.add((lhs_tuning_task, ()))
-    task_queue.run()
+    #task_queue = TaskQueue()
+    #task_queue.add((lhs_tuning_task, ()))
+    #task_queue.run()
+    #test
+    tuner = Tuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, None, 10)
+    data_file = '/home/root3/Tuning/benchbase_tpcc_20_16_1705936575.2850242/results_all.res'
+    f = open(data_file, 'r')
+    lines = f.readlines()
+    f.close()
+    train_X, train_Y = [], []
+    for line in lines[1:]:
+        line = eval(line)
+        knobs = line['knobs']
+        metric = line['Latency Distribution']['95th Percentile Latency (microseconds)']
+        train_X.append(transform_knobs2vector(tuner.knobs_detail, knobs))
+        train_Y.append([metric])
+
+    train_X = torch.tensor(train_X, dtype=torch.float64)
+    train_Y = torch.tensor(train_Y, dtype=torch.float64)
+    gp = SingleTaskGP(train_X, train_Y)
+    mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+    fit_gpytorch_model(mll)
+    UCB = UpperConfidenceBound(gp, beta=0.1, maximize=False)
+    #EI = ExpectedImprovement(gp, best_f=train_Y.max(), )
+    bounds = torch.stack([torch.zeros(60), torch.ones(60)])
+    candidate, acq_value = optimize_acqf(
+        UCB, bounds=bounds, q=1, num_restarts=5, raw_samples=20,
+    )
+    print(candidate, acq_value)
+    knobs = transform_vector2knobs(tuner.knobs_detail, candidate[0])
+    print(knobs)
