@@ -435,7 +435,13 @@ def lhs_tuning_task():
 
 
 def gp_tuning_task():
-    pass
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'gp', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    lhs_tuner = GPTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 1000, None, 'tps', 20)
+    logger = dbenv.logger
+    logger.warn("gp tuning begin!!!")
+    lhs_tuner.tune()
+    logger.warn("gp tuning over!!!")
+
 
 class TaskQueue():
     def __init__(self, nums=-1):
@@ -465,31 +471,7 @@ if __name__ == '__main__':
     #task_queue = TaskQueue()
     #task_queue.add((lhs_tuning_task, ()))
     #task_queue.run()
-    #test
-    tuner = Tuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, None, 10)
-    data_file = '/home/root3/Tuning/benchbase_tpcc_20_16_1705936575.2850242/results_all.res'
-    f = open(data_file, 'r')
-    lines = f.readlines()
-    f.close()
-    train_X, train_Y = [], []
-    for line in lines[1:]:
-        line = eval(line)
-        knobs = line['knobs']
-        metric = line['Latency Distribution']['95th Percentile Latency (microseconds)']
-        train_X.append(transform_knobs2vector(tuner.knobs_detail, knobs))
-        train_Y.append([metric])
-
-    train_X = torch.tensor(train_X, dtype=torch.float64)
-    train_Y = torch.tensor(train_Y, dtype=torch.float64)
-    gp = SingleTaskGP(train_X, train_Y)
-    mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
-    fit_gpytorch_model(mll)
-    UCB = UpperConfidenceBound(gp, beta=0.1, maximize=False)
-    #EI = ExpectedImprovement(gp, best_f=train_Y.max(), )
-    bounds = torch.stack([torch.zeros(60), torch.ones(60)])
-    candidate, acq_value = optimize_acqf(
-        UCB, bounds=bounds, q=1, num_restarts=5, raw_samples=20,
-    )
-    print(candidate, acq_value)
-    knobs = transform_vector2knobs(tuner.knobs_detail, candidate[0])
-    print(knobs)
+    # GP
+    task_queue = TaskQueue()
+    task_queue.add((gp_tuning_task, ()))
+    task_queue.run()
