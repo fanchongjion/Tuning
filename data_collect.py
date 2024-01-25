@@ -14,9 +14,14 @@ import torch
 from torch.utils.tensorboard import SummaryWriter 
 from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_model
+import gpytorch
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.acquisition import UpperConfidenceBound, ExpectedImprovement
 from botorch.optim import optimize_acqf
+from ConfigSpace import Configuration, ConfigurationSpace
+from smac import HyperparameterOptimizationFacade, Scenario
+from smac.initial_design import LatinHypercubeInitialDesign
+from ConfigSpace import Categorical, Configuration, ConfigurationSpace, Float, Integer
 
 def transform_knobs2vector(knobs_detail, knobs):
     keys = list(knobs.keys())
@@ -80,9 +85,11 @@ class LHSTuner(Tuner):
         super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
         self.method = "LHS"
     def lhs(self, lhs_num):
-            lhs_gen = LHSGenerator(lhs_num, self.knobs_detail)
-            lhs_configs = lhs_gen.generate_results()
-            return lhs_configs
+        if lhs_num == 0:
+            return []
+        lhs_gen = LHSGenerator(lhs_num, self.knobs_detail)
+        lhs_configs = lhs_gen.generate_results()
+        return lhs_configs
     def tune(self):
         self.dbenv.step(None)
         knobs_set = self.lhs(self.bugets)
@@ -141,6 +148,8 @@ class GPTuner(Tuner):
         self.warm_start_times = warm_start_times
     
     def lhs(self, lhs_num):
+        if lhs_num == 0:
+            return []
         lhs_gen = LHSGenerator(lhs_num, self.knobs_detail)
         lhs_configs = lhs_gen.generate_results()
         return lhs_configs
@@ -152,7 +161,7 @@ class GPTuner(Tuner):
         f.close()
         train_X, train_Y = [], []
         for line in lines[1:]:
-            line = eval(line)
+            line = json.loads(line)
             knobs = line['knobs']
             metric = line['Latency Distribution']['95th Percentile Latency (microseconds)'] if self.objective == 'lat' \
                      else line['Throughput (requests/second)']
@@ -171,9 +180,10 @@ class GPTuner(Tuner):
         UCB = UpperConfidenceBound(gp, beta=0.1, maximize=False if self.objective == 'lat' else True)
         #EI = ExpectedImprovement(gp, best_f=train_Y.max())
         bounds = torch.stack([torch.zeros(self.knob_nums), torch.ones(self.knob_nums)])
-        candidate, acq_value = optimize_acqf(
-            UCB, bounds=bounds, q=1, num_restarts=5, raw_samples=20,
-        )
+        with gpytorch.settings.cholesky_jitter(1e-1):
+            candidate, acq_value = optimize_acqf(
+                UCB, bounds=bounds, q=1, num_restarts=5, raw_samples=20,
+            )
         knobs = transform_vector2knobs(self.knobs_detail, candidate[0])
         
         return knobs
@@ -189,6 +199,37 @@ class GPTuner(Tuner):
             knobs = self._get_next_point()
             self.logger.info(f"recommend next knobs spent {time.time() - now}s")
             self.dbenv.step(knobs)
+
+class SMACTuner(Tuner):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None, objective='lat', warm_start_times=20):
+        super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
+        self.method = "SMAC"
+        self.objective = objective
+        self.warm_start_times = warm_start_times
+    
+    def _train(self, config, seed=0):
+        knobs = dict(config)
+        metric = self.dbenv.step(knobs)
+        if self.objective == 'lat':
+            return metric
+        else:
+            return -metric
+    def tune(self):
+        keys = list(self.knobs_detail.keys())
+        knobs = []
+        for key in keys:
+            if self.knobs_detail[key]["type"] == "integer":
+                knobs.append(Float(key, (self.knobs_detail[key]["min"], self.knobs_detail[key]["max"]), default=self.knobs_detail[key]["default"]))
+            elif self.knobs_detail[key]["type"] == "enum":
+                knobs.append(Categorical(key, self.knobs_detail[key]["enum_values"], default=self.knobs_detail[key]["default"]))
+            else:
+                pass
+        configspace = ConfigurationSpace("smac_tuning", seed=0)
+        configspace.add_hyperparameters(knobs)
+        scenario = Scenario(configspace, n_trials=self.bugets)
+        smac = HyperparameterOptimizationFacade(scenario, self._train, initial_design=LatinHypercubeInitialDesign(scenario, self.warm_start_times))
+        incumbent = smac.optimize()
+        return incumbent
 
 
 class MySQLEnv():
@@ -209,19 +250,22 @@ class MySQLEnv():
 
     def _initial(self):
         self.timestamp = time.time()    
+        self.round = 0
         results_save_dir = f"/home/root3/Tuning/{self.workload}_{self.timestamp}"
-        os.mkdir(results_save_dir)
+        if not os.path.exists(results_save_dir):
+            os.mkdir(results_save_dir)
         self.metric_save_path = os.path.join(results_save_dir, f'results_{self.objective}.res')
         self.dbenv_log_path = os.path.join(results_save_dir, 'dbenv.log')
         self.stress_results = os.path.join(results_save_dir, 'stress_results')
         self.stress_logs = os.path.join(results_save_dir, 'stress_logs')
         self.tensorboard_logs = os.path.join("/home/root3/Tuning", 'tb_logs')
-        os.mkdir(self.stress_results)
-        os.mkdir(self.stress_logs)
+        if not os.path.exists(self.stress_results):
+            os.mkdir(self.stress_results)
+        if not os.path.exists(self.stress_logs):
+            os.mkdir(self.stress_logs)
         self.logger = SingletonLogger(self.dbenv_log_path).logger
         self.writer = SummaryWriter(log_dir=self.tensorboard_logs, flush_secs=10)
         self.perfs = {}
-        self.round = 0
         self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = None, None, None
         self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = None, None, None
 
@@ -376,34 +420,35 @@ class MySQLEnv():
                 metrics["lat95_std"] = self.lat_std
                 metrics['knobs'] = knobs
                 metrics['dbsize'] = self.dbsize
-                if self.objective == "all":
-                    tmp_tps = metrics["Throughput (requests/second)"]
-                    tmp_lat = metrics["Latency Distribution"]["95th Percentile Latency (microseconds)"]
-                    if not self.perfs['cur_tps']:
-                        self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = tmp_tps, tmp_tps, tmp_tps
-                    else:
-                        self.perfs['cur_tps'] = tmp_tps
-                        self.perfs['best_tps'] = max(tmp_tps, self.perfs['best_tps'])
-
-                    if not self.perfs['cur_lat']:
-                        self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = tmp_lat, tmp_lat, tmp_lat
-                    else:
-                        self.perfs['cur_lat'] = tmp_lat
-                        self.perfs['best_lat'] = min(tmp_lat, self.perfs['best_lat'])
-                        
-                    self.writer.add_scalars(f"tps_{self.workload}_{self.timestamp}_{self.method}" , {'cur': self.perfs['cur_tps'], 'best': self.perfs['best_tps'], 'default': self.perfs['default_tps']}, self.round)
-                    self.writer.add_scalars(f"lat_{self.workload}_{self.timestamp}_{self.method}" , {'cur': self.perfs['cur_lat'], 'best': self.perfs['best_lat'], 'default': self.perfs['default_lat']}, self.round)
+                tmp_tps = metrics["Throughput (requests/second)"]
+                tmp_lat = metrics["Latency Distribution"]["95th Percentile Latency (microseconds)"]
+                if not self.perfs['cur_tps']:
+                    self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = tmp_tps, tmp_tps, tmp_tps
                 else:
-                    pass
+                    self.perfs['cur_tps'] = tmp_tps
+                    self.perfs['best_tps'] = max(tmp_tps, self.perfs['best_tps'])
+
+                if not self.perfs['cur_lat']:
+                    self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = tmp_lat, tmp_lat, tmp_lat
+                else:
+                    self.perfs['cur_lat'] = tmp_lat
+                    self.perfs['best_lat'] = min(tmp_lat, self.perfs['best_lat'])
+                    
+                self.writer.add_scalars(f"tps_{self.workload}_{self.timestamp}_{self.method}" , {'cur': self.perfs['cur_tps'], 'best': self.perfs['best_tps'], 'default': self.perfs['default_tps']}, self.round)
+                self.writer.add_scalars(f"lat_{self.workload}_{self.timestamp}_{self.method}" , {'cur': self.perfs['cur_lat'], 'best': self.perfs['best_lat'], 'default': self.perfs['default_lat']}, self.round)
             else:
                 pass
         except Exception as e:
+            tmp_tps = -0x3f3f3f3f
+            tmp_lat = 0x3f3f3f3f
             print(e)
         
         self.save_running_res(metrics)
         self.logger.info(f"save running res to {self.metric_save_path}")
         self.logger.info(f"round {self.round} over!!!")
         self.round += 1
+
+        return tmp_tps if self.objective == "tps" else tmp_lat
 
     def save_running_res(self, metrics):
         if self.workload.startswith("benchbase"):
@@ -472,6 +517,17 @@ if __name__ == '__main__':
     #task_queue.add((lhs_tuning_task, ()))
     #task_queue.run()
     # GP
-    task_queue = TaskQueue()
-    task_queue.add((gp_tuning_task, ()))
-    task_queue.run()
+    #task_queue = TaskQueue()
+    #task_queue.add((gp_tuning_task, ()))
+    #task_queue.run()
+    #lhs_tuner = LHSTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, None, 1000)
+    #print(lhs_tuner.lhs(0))
+    # f = open('/home/root3/Tuning/benchbase_tpcc_20_16_1706027497.7251525/results_tps.res', 'r')
+    # lines = f.readlines()
+    # f.close()
+    # for line in lines[1:]:
+    #     line = eval(line)
+    #dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'test', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    #knobs = {"tmp_table_size": 772910498, "max_heap_table_size": 236735734, "query_prealloc_size": 7768547, "innodb_doublewrite": "OFF", "sort_buffer_size": 114564918, "innodb_random_read_ahead": "OFF", "innodb_buffer_pool_size": 3110424889, "innodb_max_dirty_pages_pct_lwm": 90, "innodb_purge_threads": 3, "table_open_cache_instances": 25, "innodb_compression_failure_threshold_pct": 10, "innodb_change_buffering": "changes", "innodb_online_alter_log_max_size": 2737570198, "innodb_purge_batch_size": 775, "innodb_lru_scan_depth": 5062, "innodb_max_dirty_pages_pct": 16, "innodb_write_io_threads": 45, "innodb_stats_transient_sample_pages": 18, "div_precision_increment": 5, "innodb_spin_wait_delay": 55, "innodb_compression_pad_pct_max": 16, "innodb_read_ahead_threshold": 25, "innodb_concurrency_tickets": 816721938, "innodb_log_write_ahead_size": 12904, "innodb_change_buffer_max_size": 16, "long_query_time": 10, "query_cache_limit": 27407513, "max_user_connections": 3772479810, "key_cache_block_size": 12338, "ngram_token_size": 5, "innodb_autoextend_increment": 871, "innodb_sort_buffer_size": 35046327, "join_buffer_size": 484431509, "host_cache_size": 21512, "net_write_timeout": 94, "binlog_row_image": "minimal", "table_open_cache": 107883, "innodb_adaptive_max_sleep_delay": 740918, "innodb_ft_total_cache_size": 1083368841, "read_buffer_size": 870504283, "eq_range_index_dive_limit": 3663756588, "innodb_flush_log_at_timeout": 2360, "key_cache_age_threshold": 10439, "range_alloc_block_size": 49248, "innodb_ft_sort_pll_degree": 5, "innodb_ft_min_token_size": 13, "innodb_read_io_threads": 36, "max_binlog_size": 130607830, "innodb_table_locks": "OFF", "innodb_ft_result_cache_limit": 595694091, "innodb_purge_rseg_truncate_frequency": 39, "max_binlog_stmt_cache_size": 5258954440786220032, "table_definition_cache": 477208, "innodb_thread_sleep_delay": 504733, "innodb_adaptive_flushing_lwm": 21, "max_write_lock_count": 6405038671284358144, "innodb_io_capacity_max": 2774, "innodb_max_purge_lag": 2731421017, "sync_binlog": 2743919364, "optimizer_search_depth": 54}
+    #dbenv.step(knobs)
+    pass
