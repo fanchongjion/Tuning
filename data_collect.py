@@ -22,6 +22,7 @@ from ConfigSpace import Configuration, ConfigurationSpace
 from smac import HyperparameterOptimizationFacade, Scenario
 from smac.initial_design import LatinHypercubeInitialDesign
 from ConfigSpace import Categorical, Configuration, ConfigurationSpace, Float, Integer
+from pathlib import Path
 
 def transform_knobs2vector(knobs_detail, knobs):
     keys = list(knobs.keys())
@@ -226,7 +227,7 @@ class SMACTuner(Tuner):
                 pass
         configspace = ConfigurationSpace("smac_tuning", seed=0)
         configspace.add_hyperparameters(knobs)
-        scenario = Scenario(configspace, n_trials=self.bugets)
+        scenario = Scenario(configspace, n_trials=self.bugets, output_directory=Path(self.dbenv.results_save_dir))
         smac = HyperparameterOptimizationFacade(scenario, self._train, initial_design=LatinHypercubeInitialDesign(scenario, self.warm_start_times))
         incumbent = smac.optimize()
         return incumbent
@@ -252,6 +253,7 @@ class MySQLEnv():
         self.timestamp = time.time()    
         self.round = 0
         results_save_dir = f"/home/root3/Tuning/{self.workload}_{self.timestamp}"
+        self.results_save_dir = results_save_dir
         if not os.path.exists(results_save_dir):
             os.mkdir(results_save_dir)
         self.metric_save_path = os.path.join(results_save_dir, f'results_{self.objective}.res')
@@ -478,7 +480,6 @@ def lhs_tuning_task():
     lhs_tuner.tune()
     logger.warn("lhs tuning over!!!")
 
-
 def gp_tuning_task():
     dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'gp', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
     lhs_tuner = GPTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 1000, None, 'tps', 20)
@@ -487,6 +488,13 @@ def gp_tuning_task():
     lhs_tuner.tune()
     logger.warn("gp tuning over!!!")
 
+def smac_tuning_task():
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'smac', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    smac_tuner = SMACTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 1000, None, 'tps', 20)
+    logger = dbenv.logger
+    logger.warn("smac tuning begin!!!")
+    smac_tuner.tune()
+    logger.warn("smac tuning over!!!")
 
 class TaskQueue():
     def __init__(self, nums=-1):
@@ -530,4 +538,7 @@ if __name__ == '__main__':
     #dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'test', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
     #knobs = {"tmp_table_size": 772910498, "max_heap_table_size": 236735734, "query_prealloc_size": 7768547, "innodb_doublewrite": "OFF", "sort_buffer_size": 114564918, "innodb_random_read_ahead": "OFF", "innodb_buffer_pool_size": 3110424889, "innodb_max_dirty_pages_pct_lwm": 90, "innodb_purge_threads": 3, "table_open_cache_instances": 25, "innodb_compression_failure_threshold_pct": 10, "innodb_change_buffering": "changes", "innodb_online_alter_log_max_size": 2737570198, "innodb_purge_batch_size": 775, "innodb_lru_scan_depth": 5062, "innodb_max_dirty_pages_pct": 16, "innodb_write_io_threads": 45, "innodb_stats_transient_sample_pages": 18, "div_precision_increment": 5, "innodb_spin_wait_delay": 55, "innodb_compression_pad_pct_max": 16, "innodb_read_ahead_threshold": 25, "innodb_concurrency_tickets": 816721938, "innodb_log_write_ahead_size": 12904, "innodb_change_buffer_max_size": 16, "long_query_time": 10, "query_cache_limit": 27407513, "max_user_connections": 3772479810, "key_cache_block_size": 12338, "ngram_token_size": 5, "innodb_autoextend_increment": 871, "innodb_sort_buffer_size": 35046327, "join_buffer_size": 484431509, "host_cache_size": 21512, "net_write_timeout": 94, "binlog_row_image": "minimal", "table_open_cache": 107883, "innodb_adaptive_max_sleep_delay": 740918, "innodb_ft_total_cache_size": 1083368841, "read_buffer_size": 870504283, "eq_range_index_dive_limit": 3663756588, "innodb_flush_log_at_timeout": 2360, "key_cache_age_threshold": 10439, "range_alloc_block_size": 49248, "innodb_ft_sort_pll_degree": 5, "innodb_ft_min_token_size": 13, "innodb_read_io_threads": 36, "max_binlog_size": 130607830, "innodb_table_locks": "OFF", "innodb_ft_result_cache_limit": 595694091, "innodb_purge_rseg_truncate_frequency": 39, "max_binlog_stmt_cache_size": 5258954440786220032, "table_definition_cache": 477208, "innodb_thread_sleep_delay": 504733, "innodb_adaptive_flushing_lwm": 21, "max_write_lock_count": 6405038671284358144, "innodb_io_capacity_max": 2774, "innodb_max_purge_lag": 2731421017, "sync_binlog": 2743919364, "optimizer_search_depth": 54}
     #dbenv.step(knobs)
-    pass
+    # SMAC
+    task_queue = TaskQueue()
+    task_queue.add((smac_tuning_task, ()))
+    task_queue.run()
