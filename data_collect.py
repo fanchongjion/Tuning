@@ -23,6 +23,7 @@ from smac import HyperparameterOptimizationFacade, Scenario
 from smac.initial_design import LatinHypercubeInitialDesign
 from ConfigSpace import Categorical, Configuration, ConfigurationSpace, Float, Integer
 from pathlib import Path
+from openai import OpenAI
 
 def transform_knobs2vector(knobs_detail, knobs):
     keys = list(knobs.keys())
@@ -54,6 +55,14 @@ def transform_vector2knobs(knobs_detail, vector):
         else:
             pass
     return knobs
+def transform_knobs2cnf(knobs_detail, knobs):
+    keys = list(knobs.keys())
+    for key in keys:
+        if knobs_detail[key]['type'] == 'integer':
+            knobs[key] = int(knobs[key])
+        else:
+            pass
+    return knobs
 
 class Tuner():
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
@@ -75,9 +84,13 @@ class Tuner():
                 KNOB_DETAILS[key] = knob_tmp[key]
                 i = i + 1
         else:
-            for idx in self.knob_idxs:
-                key = list(knob_tmp.keys())[idx]
-                KNOB_DETAILS[key] = knob_tmp[key]
+            if type(self.knob_idxs[0]) == int:
+                for idx in self.knob_idxs:
+                    key = list(knob_tmp.keys())[idx]
+                    KNOB_DETAILS[key] = knob_tmp[key]
+            else:
+                for key in self.knob_idxs:
+                    KNOB_DETAILS[key] = knob_tmp[key]
         f.close()
         self.knobs_detail = KNOB_DETAILS
 
@@ -140,7 +153,6 @@ class GridTuner(Tuner):
                     knobs[keys[i]] = ss[i]
             self.dbenv.step(knobs)
             self.logger.info(f"tuning round {rd + 1} over!!")
-
 class GPTuner(Tuner):
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None, objective='lat', warm_start_times=20):
         super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
@@ -200,7 +212,6 @@ class GPTuner(Tuner):
             knobs = self._get_next_point()
             self.logger.info(f"recommend next knobs spent {time.time() - now}s")
             self.dbenv.step(knobs)
-
 class SMACTuner(Tuner):
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None, objective='lat', warm_start_times=20):
         super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
@@ -210,12 +221,14 @@ class SMACTuner(Tuner):
     
     def _train(self, config, seed=0):
         knobs = dict(config)
+        knobs = transform_knobs2cnf(self.knobs_detail, knobs)
         metric = self.dbenv.step(knobs)
         if self.objective == 'lat':
             return metric
         else:
             return -metric
     def tune(self):
+        self.dbenv.step(None)
         keys = list(self.knobs_detail.keys())
         knobs = []
         for key in keys:
@@ -231,7 +244,102 @@ class SMACTuner(Tuner):
         smac = HyperparameterOptimizationFacade(scenario, self._train, initial_design=LatinHypercubeInitialDesign(scenario, self.warm_start_times))
         incumbent = smac.optimize()
         return incumbent
-
+class LLMTuner(Tuner):
+    def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None, objective='lat', warm_start_times=10, prune_nums=5):
+        super().__init__(knobs_config_path, knob_nums, dbenv, bugets, knob_idxs)
+        self.method = "LLM"
+        self.objective = objective
+        self.warm_start_times = warm_start_times
+        self.prune_nums = prune_nums
+        api_key = "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"
+        self.client = OpenAI(api_key=api_key)
+        self.system_content = '''You will be helping me with the knob tuning task for {0} database. '''
+        self.user_content_prune = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please give the {8} knobs that have the greatest impact on the performance of the database. You should give these top-{8} knobs by json style.  The given knobs must be included in the previously given knobs. Just give the json without any other extra output.'''
+        self.user_content_ws_samples = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please suggest {8} diverse yet effective configurations to initiate a Bayesian Optimization process for knobs tuning. You mustn't include “None” in the configurations. Your response should include a list of dictionaries, where each dictionary describes one recommended configuration.Just give the dictionaries without any other extra output.'''
+    def _knob_prune(self, nums):
+        knobs_str = json.dumps(self.knobs_detail)
+        system_content = self.system_content.format("MySQL")
+        obj_str = 'throughput' if self.objective == 'tps' else 'latency'
+        user_content = self.user_content_prune.format(knobs_str, "MySQL", '4', '8GB', '1TB', '2GB', 'TPC-C', obj_str, nums)
+        completion = self.client.chat.completions.create(
+            model="gpt-3.5-turbo-1106",
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content}
+            ]
+        )
+        print(completion.choices[0].message.content)
+        keys = list(json.loads(completion.choices[0].message.content).keys())
+        print(keys)
+        KNOB_DETAILS = {}
+        for key in keys:
+            KNOB_DETAILS[key] = self.knobs_detail[key]
+        self.knobs_detail = KNOB_DETAILS
+        self.knob_nums = nums
+    
+    def _get_warm_start_samples(self, nums):
+        knobs_str = json.dumps(self.knobs_detail)
+        system_content = self.system_content.format("MySQL")
+        obj_str = 'throughput' if self.objective == 'tps' else 'latency'
+        user_content = self.user_content_ws_samples.format(knobs_str, "MySQL", '4', '8GB', '1TB', '2GB', 'TPC-C', obj_str, nums)
+        completion = self.client.chat.completions.create(
+            model="gpt-3.5-turbo-1106",
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_content}
+            ]
+        )
+        print(completion.choices[0].message.content)
+        knobs = eval(completion.choices[0].message.content)
+        return knobs
+    
+    def _get_next_point(self):
+        data_file = self.dbenv.metric_save_path
+        f = open(data_file, 'r')
+        lines = f.readlines()
+        f.close()
+        train_X, train_Y = [], []
+        for line in lines[1:]:
+            line = json.loads(line)
+            knobs = line['knobs']
+            metric = line['Latency Distribution']['95th Percentile Latency (microseconds)'] if self.objective == 'lat' \
+                     else line['Throughput (requests/second)']
+            train_X.append(transform_knobs2vector(self.knobs_detail, knobs))
+            train_Y.append([metric])
+        train_X = torch.tensor(train_X, dtype=torch.float64)
+        train_Y = torch.tensor(train_Y, dtype=torch.float64)
+        gp = SingleTaskGP(train_X, train_Y)
+        mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+        fit_gpytorch_model(mll)
+        train_X = torch.tensor(train_X, dtype=torch.float64)
+        train_Y = torch.tensor(train_Y, dtype=torch.float64)
+        gp = SingleTaskGP(train_X, train_Y)
+        mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+        fit_gpytorch_model(mll)
+        UCB = UpperConfidenceBound(gp, beta=0.1, maximize=False if self.objective == 'lat' else True)
+        #EI = ExpectedImprovement(gp, best_f=train_Y.max())
+        bounds = torch.stack([torch.zeros(self.knob_nums), torch.ones(self.knob_nums)])
+        with gpytorch.settings.cholesky_jitter(1e-1):
+            candidate, acq_value = optimize_acqf(
+                UCB, bounds=bounds, q=1, num_restarts=5, raw_samples=20,
+            )
+        knobs = transform_vector2knobs(self.knobs_detail, candidate[0])
+        
+        return knobs
+    def tune(self):
+        # self._knob_prune(self.prune_nums)
+        # knobs_set = self._get_warm_start_samples(self.warm_start_times)
+        # self.dbenv.step(None)
+        # self.logger.info("warm start begin!!!")
+        # for knobs in knobs_set:
+        #     self.dbenv.step(knobs)
+        # self.logger.info("warm start over!!!")
+        for _ in range(self.bugets - self.warm_start_times):
+            now = time.time()
+            knobs = self._get_next_point()
+            self.logger.info(f"recommend next knobs spent {time.time() - now}s")
+            self.dbenv.step(knobs)
+        
 
 class MySQLEnv():
     def __init__(self, host, user, passwd, dbname, workload, objective, method, stress_test_duration, template_cnf_path, real_cnf_path):
@@ -268,8 +376,8 @@ class MySQLEnv():
         self.logger = SingletonLogger(self.dbenv_log_path).logger
         self.writer = SummaryWriter(log_dir=self.tensorboard_logs, flush_secs=10)
         self.perfs = {}
-        self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = None, None, None
-        self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = None, None, None
+        self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = 1089.616370835822, 321.2328462800918, 1089.616370835822
+        self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = 44262, 133792, 44262
 
     def _start_mysqld(self):
         proc = subprocess.Popen(['mysqld', '--defaults-file={}'.format(self.real_cnf_path)])
@@ -482,7 +590,7 @@ def lhs_tuning_task():
 
 def gp_tuning_task():
     dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'gp', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
-    lhs_tuner = GPTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 1000, None, 'tps', 20)
+    lhs_tuner = GPTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 100, None, 'tps', 10)
     logger = dbenv.logger
     logger.warn("gp tuning begin!!!")
     lhs_tuner.tune()
@@ -490,11 +598,20 @@ def gp_tuning_task():
 
 def smac_tuning_task():
     dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'smac', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
-    smac_tuner = SMACTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 1000, None, 'tps', 20)
+    smac_tuner = SMACTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, dbenv, 100, None, 'tps', 10)
     logger = dbenv.logger
     logger.warn("smac tuning begin!!!")
     smac_tuner.tune()
     logger.warn("smac tuning over!!!")
+
+def llm_tuning_task():
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'llm', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 60, dbenv, 100, None, 'tps', 10, 5)
+    logger = dbenv.logger
+    logger.warn("llm tuning begin!!!")
+    llm_tuner.tune()
+    logger.warn("llm tuning over!!!")
+
 
 class TaskQueue():
     def __init__(self, nums=-1):
@@ -542,3 +659,11 @@ if __name__ == '__main__':
     task_queue = TaskQueue()
     task_queue.add((smac_tuning_task, ()))
     task_queue.run()
+    # LLM
+    # task_queue = TaskQueue()
+    # task_queue.add((llm_tuning_task, ()))
+    # task_queue.run()
+    #llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 60, None, 100, ['innodb_buffer_pool_size','innodb_doublewrite','innodb_write_io_threads','innodb_purge_threads','sort_buffer_size'], 'tps', 10, 5)
+    #llm_tuner._knob_prune(5)
+    #print(json.dumps(llm_tuner.knobs_detail))
+    #llm_tuner._get_next_point()
