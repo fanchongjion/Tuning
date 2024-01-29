@@ -4,6 +4,7 @@ import subprocess
 import time
 import mysql.connector
 import os
+import re
 import numpy as np
 from shutil import copyfile
 from logger import SingletonLogger
@@ -24,6 +25,7 @@ from smac.initial_design import LatinHypercubeInitialDesign
 from ConfigSpace import Categorical, Configuration, ConfigurationSpace, Float, Integer
 from pathlib import Path
 from openai import OpenAI
+from mab import ThompsonSamplingBandit
 
 def transform_knobs2vector(knobs_detail, knobs):
     keys = list(knobs.keys())
@@ -251,11 +253,83 @@ class LLMTuner(Tuner):
         self.objective = objective
         self.warm_start_times = warm_start_times
         self.prune_nums = prune_nums
-        api_key = "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"
+        api_key = "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"
         self.client = OpenAI(api_key=api_key)
         self.system_content = '''You will be helping me with the knob tuning task for {0} database. '''
         self.user_content_prune = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please give the {8} knobs that have the greatest impact on the performance of the database. You should give these top-{8} knobs by json style.  The given knobs must be included in the previously given knobs. Just give the json without any other extra output.'''
         self.user_content_ws_samples = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please suggest {8} diverse yet effective configurations to initiate a Bayesian Optimization process for knobs tuning. You mustn't include “None” in the configurations. Your response should include a list of dictionaries, where each dictionary describes one recommended configuration.Just give the dictionaries without any other extra output.'''
+        self.bandit = ThompsonSamplingBandit(num_arms=2)
+
+    def _gen_candidates_llm(self, nums, target):
+        system_content = self.system_content.format("MySQL")
+        obj_str = 'throughput' if self.objective == 'tps' else 'latency'
+        prompt = '''The following examples demonstrate {0} database running on a machine with {1} cores, {2} of memory, and a {3} disk, under a {4} {5} workload. These examples involve adjusting various knobs configurations to observe changes in {6} metrics:\n'''.format("MySQL", 4, "8GB", "1TB", "2GB", "TPC-C", obj_str)
+        data_file = "/home/root3/Tuning/benchbase_tpcc_20_16_1706430745.8335333/results_tps.res"
+        f = open(data_file, 'r')
+        lines = f.readlines()
+        f.close()
+        for line in lines[1:]:
+            line = json.loads(line)
+            knobs = line['knobs']
+            metric = line['Latency Distribution']['95th Percentile Latency (microseconds)'] if self.objective == 'lat' \
+                     else line['Throughput (requests/second)']
+            prompt += "Knob configuration: " + json.dumps(knobs) + "\n"
+            prompt += "Performance: " + str(int(metric)) + "\n"
+        prompt +=  f"The allowable ranges for knobs are: {json.dumps(self.knobs_detail)}. "
+        prompt += f"Please recommend {nums} configurations that can achieve the target performance of {target}. Do not recommend values at the minimum or maximum of allowable range, do not recommend rounded values. Recommend values with the highest possible precision, as requested by the allowed ranges. "
+        prompt += f"Your response must only contain the predicted configuration, in the format ## Knob configuration: ##."
+        completion = self.client.chat.completions.create(
+            model="gpt-3.5-turbo-1106",
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        strs = completion.choices[0].message.content
+        pattern = re.compile(r'\{.*?\}')
+        matches = pattern.findall(strs)
+        samples = []
+        for match in matches:
+            samples.append(eval(match))
+
+        return samples
+
+    def _prediction_llm(self, knobs_set):
+        system_content = self.system_content.format("MySQL")
+        obj_str = 'throughput' if self.objective == 'tps' else 'latency'
+        prompt = '''The following examples demonstrate {0} database running on a machine with {1} cores, {2} of memory, and a {3} disk, under a {4} {5} workload. These examples involve adjusting various knobs configurations to observe changes in {6} metrics:\n'''.format("MySQL", 4, "8GB", "1TB", "2GB", "TPC-C", obj_str)
+        data_file = "/home/root3/Tuning/benchbase_tpcc_20_16_1706430745.8335333/results_tps.res"
+        f = open(data_file, 'r')
+        lines = f.readlines()
+        f.close()
+        for line in lines[1:]:
+            line = json.loads(line)
+            knobs = line['knobs']
+            metric = line['Latency Distribution']['95th Percentile Latency (microseconds)'] if self.objective == 'lat' \
+                     else line['Throughput (requests/second)']
+            prompt += "Knob configuration: " + json.dumps(knobs) + "\n"
+            prompt += "Performance: " + str(int(metric)) + "\n"
+        prompt +=  f"The allowable ranges for knobs are: {json.dumps(self.knobs_detail)}. "
+        prompt += "Please combine the above information to determine which of the following configurations is a high potential configuration: \n"
+        for knobs in knobs_set:
+            prompt += json.dumps(knobs) + "\n"
+        prompt += "Your response should only contain one of the above configurations."
+        completion = self.client.chat.completions.create(
+            model="gpt-3.5-turbo-1106",
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        strs = completion.choices[0].message.content
+        pattern = re.compile(r'\{.*?\}')
+        matches = pattern.findall(strs)
+        samples = []
+        for match in matches:
+            samples.append(eval(match))
+
+        return samples[0]
+
     def _knob_prune(self, nums):
         knobs_str = json.dumps(self.knobs_detail)
         system_content = self.system_content.format("MySQL")
@@ -293,7 +367,7 @@ class LLMTuner(Tuner):
         knobs = eval(completion.choices[0].message.content)
         return knobs
     
-    def _get_next_point(self):
+    def _get_next_point_origin(self):
         data_file = self.dbenv.metric_save_path
         f = open(data_file, 'r')
         lines = f.readlines()
@@ -308,6 +382,38 @@ class LLMTuner(Tuner):
             train_Y.append([metric])
         train_X = torch.tensor(train_X, dtype=torch.float64)
         train_Y = torch.tensor(train_Y, dtype=torch.float64)
+        target = float(train_Y.min()) if self.objective == "lat" else float(train_Y.max())
+        gp = SingleTaskGP(train_X, train_Y)
+        mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
+        fit_gpytorch_model(mll)
+        UCB = UpperConfidenceBound(gp, beta=0.1, maximize=False if self.objective == 'lat' else True)
+        #EI = ExpectedImprovement(gp, best_f=target, maximize=False if self.objective == 'lat' else True)
+        bounds = torch.stack([torch.zeros(self.knob_nums), torch.ones(self.knob_nums)])
+        with gpytorch.settings.cholesky_jitter(1e-1):
+            candidate, acq_value = optimize_acqf(
+                UCB, bounds=bounds, q=1, num_restarts=10, raw_samples=2000
+            )
+        knobs = transform_vector2knobs(self.knobs_detail, candidate[0])
+        
+        return knobs
+    
+    def _get_next_point_llm_assist(self, candidate_nums=5):
+        data_file = "/home/root3/Tuning/benchbase_tpcc_20_16_1706430745.8335333/results_tps.res"
+        f = open(data_file, 'r')
+        lines = f.readlines()
+        f.close()
+        train_X, train_Y = [], []
+        for line in lines[1:]:
+            line = json.loads(line)
+            knobs = line['knobs']
+            metric = line['Latency Distribution']['95th Percentile Latency (microseconds)'] if self.objective == 'lat' \
+                     else line['Throughput (requests/second)']
+            train_X.append(transform_knobs2vector(self.knobs_detail, knobs))
+            train_Y.append([metric])
+        train_X = torch.tensor(train_X, dtype=torch.float64)
+        train_Y = torch.tensor(train_Y, dtype=torch.float64)
+        target = float(train_Y.min()) if self.objective == "lat" else float(train_Y.max())
+        print(target)
         gp = SingleTaskGP(train_X, train_Y)
         mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
         fit_gpytorch_model(mll)
@@ -317,29 +423,83 @@ class LLMTuner(Tuner):
         mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
         fit_gpytorch_model(mll)
         UCB = UpperConfidenceBound(gp, beta=0.1, maximize=False if self.objective == 'lat' else True)
-        #EI = ExpectedImprovement(gp, best_f=train_Y.max())
+        EI = ExpectedImprovement(gp, best_f=target, maximize=False if self.objective == 'lat' else True)
         bounds = torch.stack([torch.zeros(self.knob_nums), torch.ones(self.knob_nums)])
         with gpytorch.settings.cholesky_jitter(1e-1):
-            candidate, acq_value = optimize_acqf(
-                UCB, bounds=bounds, q=1, num_restarts=5, raw_samples=20,
+            candidates_default, acq_values_default = optimize_acqf(
+                EI, bounds=bounds, q=1, num_restarts=candidate_nums, raw_samples=2000, return_best_only=False
             )
-        knobs = transform_vector2knobs(self.knobs_detail, candidate[0])
-        
-        return knobs
+        llm_initial_samples = self._gen_candidates_llm(candidate_nums, target)
+        samples = []
+        for sample in llm_initial_samples:
+            samples.append(transform_knobs2vector(self.knobs_detail, sample))
+        samples = torch.tensor(samples, dtype=torch.float64)
+        samples = samples.reshape(candidate_nums, 1, self.knob_nums)
+        with gpytorch.settings.cholesky_jitter(1e-1):
+            candidates_llm, acq_values_llm = optimize_acqf(
+                EI, bounds=bounds, q=1, num_restarts=candidate_nums, batch_initial_conditions=samples, return_best_only=False
+            )
+        candidates = torch.concat([candidates_default, candidates_llm], dim=0)
+        acq_values = torch.concat([acq_values_default, acq_values_llm], dim=0)
+        idx = int(acq_values.argmax())
+        knobs_set = []
+        size = candidates.shape[0]
+        for i in range(size):
+            candidate = candidates[i][0]
+            tmp_knobs = transform_vector2knobs(self.knobs_detail, candidate)
+            knobs_set.append(tmp_knobs)
+
+        knobs = transform_vector2knobs(self.knobs_detail, candidates[idx][0])
+        return knobs, knobs_set
+    
+    def _get_next_point_hybrid(self):
+        knobs_default, knobs_set = self._get_next_point_llm_assist()
+        knobs_llm = self._prediction_llm(knobs_set)
+        return knobs_default, knobs_llm
+
+    def _get_reward(self):
+        pass
+
     def tune(self):
-        # self._knob_prune(self.prune_nums)
-        # knobs_set = self._get_warm_start_samples(self.warm_start_times)
-        # self.dbenv.step(None)
-        # self.logger.info("warm start begin!!!")
-        # for knobs in knobs_set:
-        #     self.dbenv.step(knobs)
-        # self.logger.info("warm start over!!!")
+        self._knob_prune(self.prune_nums)
+        knobs_set = self._get_warm_start_samples(self.warm_start_times)
+        self.dbenv.step(None)
+        self.logger.info("warm start begin!!!")
+        for knobs in knobs_set:
+            self.dbenv.step(knobs)
+        self.logger.info("warm start over!!!")
         for _ in range(self.bugets - self.warm_start_times):
             now = time.time()
-            knobs = self._get_next_point()
+            knobs = self._get_next_point_origin()
             self.logger.info(f"recommend next knobs spent {time.time() - now}s")
             self.dbenv.step(knobs)
-        
+
+    def tune_end2end(self):
+        self._knob_prune(self.prune_nums)
+        knobs_set = self._get_warm_start_samples(self.warm_start_times)
+        self.dbenv.step(None)
+        self.logger.info("warm start begin!!!")
+        for knobs in knobs_set:
+            self.dbenv.step(knobs)
+        self.logger.info("warm start over!!!")
+        total_reward = 0
+        for _ in range(self.bugets - self.warm_start_times):
+            now = time.time()
+            knobs_default, knobs_llm = self._get_next_point_hybrid()
+            self.logger.info(f"recommend next knobs spent {time.time() - now}s")
+            chosen_arm = self.bandit.choose_arm()
+            if chosen_arm == 0:
+                self.logger.info(f"choose arm {chosen_arm}: default knobs!")
+                self.dbenv.step(knobs_default)
+            else:
+                self.logger.info(f"choose arm {chosen_arm}: llm knobs!")
+                self.dbenv.step(knobs_llm)
+
+            reward = self._get_reward()
+            self.logger.info(f"get reward: {reward}")
+            total_reward += reward
+            self.bandit.update_arm(chosen_arm, reward)
+        self.logger.info(f"total reward: {total_reward}")
 
 class MySQLEnv():
     def __init__(self, host, user, passwd, dbname, workload, objective, method, stress_test_duration, template_cnf_path, real_cnf_path):
@@ -656,14 +816,15 @@ if __name__ == '__main__':
     #knobs = {"tmp_table_size": 772910498, "max_heap_table_size": 236735734, "query_prealloc_size": 7768547, "innodb_doublewrite": "OFF", "sort_buffer_size": 114564918, "innodb_random_read_ahead": "OFF", "innodb_buffer_pool_size": 3110424889, "innodb_max_dirty_pages_pct_lwm": 90, "innodb_purge_threads": 3, "table_open_cache_instances": 25, "innodb_compression_failure_threshold_pct": 10, "innodb_change_buffering": "changes", "innodb_online_alter_log_max_size": 2737570198, "innodb_purge_batch_size": 775, "innodb_lru_scan_depth": 5062, "innodb_max_dirty_pages_pct": 16, "innodb_write_io_threads": 45, "innodb_stats_transient_sample_pages": 18, "div_precision_increment": 5, "innodb_spin_wait_delay": 55, "innodb_compression_pad_pct_max": 16, "innodb_read_ahead_threshold": 25, "innodb_concurrency_tickets": 816721938, "innodb_log_write_ahead_size": 12904, "innodb_change_buffer_max_size": 16, "long_query_time": 10, "query_cache_limit": 27407513, "max_user_connections": 3772479810, "key_cache_block_size": 12338, "ngram_token_size": 5, "innodb_autoextend_increment": 871, "innodb_sort_buffer_size": 35046327, "join_buffer_size": 484431509, "host_cache_size": 21512, "net_write_timeout": 94, "binlog_row_image": "minimal", "table_open_cache": 107883, "innodb_adaptive_max_sleep_delay": 740918, "innodb_ft_total_cache_size": 1083368841, "read_buffer_size": 870504283, "eq_range_index_dive_limit": 3663756588, "innodb_flush_log_at_timeout": 2360, "key_cache_age_threshold": 10439, "range_alloc_block_size": 49248, "innodb_ft_sort_pll_degree": 5, "innodb_ft_min_token_size": 13, "innodb_read_io_threads": 36, "max_binlog_size": 130607830, "innodb_table_locks": "OFF", "innodb_ft_result_cache_limit": 595694091, "innodb_purge_rseg_truncate_frequency": 39, "max_binlog_stmt_cache_size": 5258954440786220032, "table_definition_cache": 477208, "innodb_thread_sleep_delay": 504733, "innodb_adaptive_flushing_lwm": 21, "max_write_lock_count": 6405038671284358144, "innodb_io_capacity_max": 2774, "innodb_max_purge_lag": 2731421017, "sync_binlog": 2743919364, "optimizer_search_depth": 54}
     #dbenv.step(knobs)
     # SMAC
-    task_queue = TaskQueue()
-    task_queue.add((smac_tuning_task, ()))
-    task_queue.run()
+    #task_queue = TaskQueue()
+    #task_queue.add((smac_tuning_task, ()))
+    #task_queue.run()
     # LLM
     # task_queue = TaskQueue()
     # task_queue.add((llm_tuning_task, ()))
     # task_queue.run()
-    #llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 60, None, 100, ['innodb_buffer_pool_size','innodb_doublewrite','innodb_write_io_threads','innodb_purge_threads','sort_buffer_size'], 'tps', 10, 5)
+    llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 5, None, 100, ['innodb_buffer_pool_size','innodb_write_io_threads','innodb_doublewrite','innodb_stats_transient_sample_pages','innodb_lru_scan_depth'], 'tps', 10, 5)
+    llm_tuner._get_next_point_llm_assist()
     #llm_tuner._knob_prune(5)
     #print(json.dumps(llm_tuner.knobs_detail))
     #llm_tuner._get_next_point()
