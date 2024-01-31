@@ -253,18 +253,43 @@ class LLMTuner(Tuner):
         self.objective = objective
         self.warm_start_times = warm_start_times
         self.prune_nums = prune_nums
-        api_key = "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"
+        api_key = "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"
         self.client = OpenAI(api_key=api_key)
         self.system_content = '''You will be helping me with the knob tuning task for {0} database. '''
         self.user_content_prune = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please give the {8} knobs that have the greatest impact on the performance of the database. You should give these top-{8} knobs by json style.  The given knobs must be included in the previously given knobs. Just give the json without any other extra output.'''
         self.user_content_ws_samples = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please suggest {8} diverse yet effective configurations to initiate a Bayesian Optimization process for knobs tuning. You mustn't include “None” in the configurations. Your response should include a list of dictionaries, where each dictionary describes one recommended configuration.Just give the dictionaries without any other extra output.'''
         self.bandit = ThompsonSamplingBandit(num_arms=2)
 
+    def _check_knobs_valid(self, knobs_set):
+        if len(knobs_set) != 5:
+            return False 
+        keys = list(self.knobs_detail.keys())
+        for knobs in knobs_set:
+            tmp_keys = list(knobs.keys())
+            for key in tmp_keys:
+                if key not in keys:
+                    self.logger.info(f"key: {key} not in knob space")
+                    return False
+            for key in tmp_keys:
+                if self.knobs_detail[key]['type'] == 'integer':
+                    v = knobs[key]
+                    minv, maxv = self.knobs_detail[key]['min'], self.knobs_detail[key]['max']
+                    if v < minv or v > maxv:
+                        self.logger.info(f"knobs range error, {key} : {v}")
+                        return False
+                else:
+                    v = knobs[key]
+                    vs = self.knobs_detail[key]['enum_values']
+                    if v not in vs:
+                        self.logger.info(f"knobs range error, {key} : {v}")
+                        return False
+        return True
+    
     def _gen_candidates_llm(self, nums, target):
         system_content = self.system_content.format("MySQL")
         obj_str = 'throughput' if self.objective == 'tps' else 'latency'
         prompt = '''The following examples demonstrate {0} database running on a machine with {1} cores, {2} of memory, and a {3} disk, under a {4} {5} workload. These examples involve adjusting various knobs configurations to observe changes in {6} metrics:\n'''.format("MySQL", 4, "8GB", "1TB", "2GB", "TPC-C", obj_str)
-        data_file = "/home/root3/Tuning/benchbase_tpcc_20_16_1706430745.8335333/results_tps.res"
+        data_file = self.dbenv.metric_save_path
         f = open(data_file, 'r')
         lines = f.readlines()
         f.close()
@@ -275,30 +300,44 @@ class LLMTuner(Tuner):
                      else line['Throughput (requests/second)']
             prompt += "Knob configuration: " + json.dumps(knobs) + "\n"
             prompt += "Performance: " + str(int(metric)) + "\n"
-        prompt +=  f"The allowable ranges for knobs are: {json.dumps(self.knobs_detail)}. "
-        prompt += f"Please recommend {nums} configurations that can achieve the target performance of {target}. Do not recommend values at the minimum or maximum of allowable range, do not recommend rounded values. Recommend values with the highest possible precision, as requested by the allowed ranges. "
-        prompt += f"Your response must only contain the predicted configuration, in the format ## Knob configuration: ##."
-        completion = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        strs = completion.choices[0].message.content
-        pattern = re.compile(r'\{.*?\}')
-        matches = pattern.findall(strs)
-        samples = []
-        for match in matches:
-            samples.append(eval(match))
+        prompt +=  f"The database knob space is: {json.dumps(self.knobs_detail)}." + "\n"
+        prompt += f"Please recommend {nums} configurations that will result in a database {obj_str} of {int(target)}. Each knob must contained within the knob space, Your response must only contain the predicted configurations, in the format ## Knob configuration: ##."
+        count = 10
+        while count > 0:
+            try:
+                completion = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo-1106",
+                    messages=[
+                        {"role": "system", "content": system_content},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                strs = completion.choices[0].message.content
+                pattern = re.compile(r'\{.*?\}')
+                matches = pattern.findall(strs)
+                samples = []
+                for match in matches:
+                    samples.append(eval(match))
+                if self._check_knobs_valid(samples):
+                    self.logger.info(f"time {10 - count}, gpt return sucess")
+                    break
+            except Exception as e:
+                print(e)
+                pass
+            time.sleep(15)
+            self.logger.info(f"time {10 - count}, gpt return error")
+            count -= 1
 
+        if count == 0:
+            self.logger.error(f"gpt return fail")
+            return
         return samples
 
     def _prediction_llm(self, knobs_set):
         system_content = self.system_content.format("MySQL")
         obj_str = 'throughput' if self.objective == 'tps' else 'latency'
         prompt = '''The following examples demonstrate {0} database running on a machine with {1} cores, {2} of memory, and a {3} disk, under a {4} {5} workload. These examples involve adjusting various knobs configurations to observe changes in {6} metrics:\n'''.format("MySQL", 4, "8GB", "1TB", "2GB", "TPC-C", obj_str)
-        data_file = "/home/root3/Tuning/benchbase_tpcc_20_16_1706430745.8335333/results_tps.res"
+        data_file = self.dbenv.metric_save_path
         f = open(data_file, 'r')
         lines = f.readlines()
         f.close()
@@ -314,19 +353,27 @@ class LLMTuner(Tuner):
         for knobs in knobs_set:
             prompt += json.dumps(knobs) + "\n"
         prompt += "Your response should only contain one of the above configurations."
-        completion = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        strs = completion.choices[0].message.content
-        pattern = re.compile(r'\{.*?\}')
-        matches = pattern.findall(strs)
-        samples = []
-        for match in matches:
-            samples.append(eval(match))
+        count = 10
+        while True:
+            try:
+                completion = self.client.chat.completions.create(
+                    model="gpt-3.5-turbo-1106",
+                    messages=[
+                        {"role": "system", "content": system_content},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                strs = completion.choices[0].message.content
+                pattern = re.compile(r'\{.*?\}')
+                matches = pattern.findall(strs)
+                samples = []
+                for match in matches:
+                    samples.append(eval(match))
+            except Exception as e:
+                print(e)
+            if len(samples) > 0:
+                break
+            count -= 1
 
         return samples[0]
 
@@ -342,9 +389,13 @@ class LLMTuner(Tuner):
                 {"role": "user", "content": user_content}
             ]
         )
-        print(completion.choices[0].message.content)
-        keys = list(json.loads(completion.choices[0].message.content).keys())
+        strs = completion.choices[0].message.content
+        keys = []
+        for key in list(self.knobs_detail.keys()):
+            if key in strs:
+                keys.append(key)
         print(keys)
+        assert(len(keys) == nums)
         KNOB_DETAILS = {}
         for key in keys:
             KNOB_DETAILS[key] = self.knobs_detail[key]
@@ -398,7 +449,7 @@ class LLMTuner(Tuner):
         return knobs
     
     def _get_next_point_llm_assist(self, candidate_nums=5):
-        data_file = "/home/root3/Tuning/benchbase_tpcc_20_16_1706430745.8335333/results_tps.res"
+        data_file = self.dbenv.metric_save_path
         f = open(data_file, 'r')
         lines = f.readlines()
         f.close()
@@ -433,14 +484,19 @@ class LLMTuner(Tuner):
         samples = []
         for sample in llm_initial_samples:
             samples.append(transform_knobs2vector(self.knobs_detail, sample))
-        samples = torch.tensor(samples, dtype=torch.float64)
-        samples = samples.reshape(candidate_nums, 1, self.knob_nums)
-        with gpytorch.settings.cholesky_jitter(1e-1):
-            candidates_llm, acq_values_llm = optimize_acqf(
-                EI, bounds=bounds, q=1, num_restarts=candidate_nums, batch_initial_conditions=samples, return_best_only=False
-            )
-        candidates = torch.concat([candidates_default, candidates_llm], dim=0)
-        acq_values = torch.concat([acq_values_default, acq_values_llm], dim=0)
+        if samples:
+            samples = torch.tensor(samples, dtype=torch.float64)
+            samples = samples.reshape(candidate_nums, 1, self.knob_nums)
+            with gpytorch.settings.cholesky_jitter(1e-1):
+                candidates_llm, acq_values_llm = optimize_acqf(
+                    EI, bounds=bounds, q=1, num_restarts=candidate_nums, batch_initial_conditions=samples, return_best_only=False
+                )
+            candidates = torch.concat([candidates_default, candidates_llm], dim=0)
+            acq_values = torch.concat([acq_values_default, acq_values_llm], dim=0)
+        else:
+            candidates = candidates_default
+            acq_values = acq_values_default
+
         idx = int(acq_values.argmax())
         knobs_set = []
         size = candidates.shape[0]
@@ -458,7 +514,20 @@ class LLMTuner(Tuner):
         return knobs_default, knobs_llm
 
     def _get_reward(self):
-        pass
+        data_file = self.dbenv.metric_save_path
+        f = open(data_file, 'r')
+        lines = f.readlines()
+        info_first = json.loads(lines[-2])
+        info_last = json.loads(lines[-1])
+        if self.objective == 'lat':
+            perf_first = info_first["Latency Distribution"]["95th Percentile Latency (microseconds)"]
+            perf_last = info_last["Latency Distribution"]["95th Percentile Latency (microseconds)"]
+            return perf_first - perf_last
+        else:
+            perf_first = info_first["Throughput (requests/second)"]
+            perf_last = info_last["Throughput (requests/second)"]
+            return perf_last - perf_first
+        
 
     def tune(self):
         self._knob_prune(self.prune_nums)
@@ -471,6 +540,20 @@ class LLMTuner(Tuner):
         for _ in range(self.bugets - self.warm_start_times):
             now = time.time()
             knobs = self._get_next_point_origin()
+            self.logger.info(f"recommend next knobs spent {time.time() - now}s")
+            self.dbenv.step(knobs)
+
+    def tune_llm_assist(self):
+        self._knob_prune(self.prune_nums)
+        knobs_set = self._get_warm_start_samples(self.warm_start_times)
+        self.dbenv.step(None)
+        self.logger.info("warm start begin!!!")
+        for knobs in knobs_set:
+            self.dbenv.step(knobs)
+        self.logger.info("warm start over!!!")
+        for _ in range(self.bugets - self.warm_start_times):
+            now = time.time()
+            knobs, _ = self._get_next_point_llm_assist()
             self.logger.info(f"recommend next knobs spent {time.time() - now}s")
             self.dbenv.step(knobs)
 
@@ -536,8 +619,8 @@ class MySQLEnv():
         self.logger = SingletonLogger(self.dbenv_log_path).logger
         self.writer = SummaryWriter(log_dir=self.tensorboard_logs, flush_secs=10)
         self.perfs = {}
-        self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = 1089.616370835822, 321.2328462800918, 1089.616370835822
-        self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = 44262, 133792, 44262
+        self.perfs['cur_tps'], self.perfs['default_tps'], self.perfs['best_tps'] = None, None, None
+        self.perfs['cur_lat'], self.perfs['default_lat'], self.perfs['best_lat'] = None, None, None
 
     def _start_mysqld(self):
         proc = subprocess.Popen(['mysqld', '--defaults-file={}'.format(self.real_cnf_path)])
@@ -772,6 +855,21 @@ def llm_tuning_task():
     llm_tuner.tune()
     logger.warn("llm tuning over!!!")
 
+def llm_assist_tuning_task():
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'llm_assist', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 5, dbenv, 37, ['innodb_buffer_pool_size','innodb_write_io_threads','innodb_flush_log_at_timeout','innodb_read_io_threads','innodb_io_capacity_max'], 'tps', 0, 5)
+    logger = dbenv.logger
+    logger.warn("llm assist tuning begin!!!")
+    llm_tuner.tune_llm_assist()
+    logger.warn("llm assist tuning over!!!")
+
+def llm_tuning_end2end():
+    dbenv = MySQLEnv('localhost', 'root', '', 'benchbase', 'benchbase_tpcc_20_16', 'tps', 'llm_end2end', 60, '/home/root3/Tuning/template.cnf', '/home/root3/mysql/my.cnf')
+    llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 60, dbenv, 100, None, 'tps', 10, 5)
+    logger = dbenv.logger
+    logger.warn("llm end2end tuning begin!!!")
+    llm_tuner.tune_end2end()
+    logger.warn("llm end2end tuning over!!!")
 
 class TaskQueue():
     def __init__(self, nums=-1):
@@ -803,7 +901,8 @@ if __name__ == '__main__':
     #task_queue.run()
     # GP
     #task_queue = TaskQueue()
-    #task_queue.add((gp_tuning_task, ()))
+    #for _ in range(4):
+    #    task_queue.add((smac_tuning_task, ()))
     #task_queue.run()
     #lhs_tuner = LHSTuner('/home/root3/Tuning/mysql_knobs_copy.json', 60, None, 1000)
     #print(lhs_tuner.lhs(0))
@@ -816,15 +915,15 @@ if __name__ == '__main__':
     #knobs = {"tmp_table_size": 772910498, "max_heap_table_size": 236735734, "query_prealloc_size": 7768547, "innodb_doublewrite": "OFF", "sort_buffer_size": 114564918, "innodb_random_read_ahead": "OFF", "innodb_buffer_pool_size": 3110424889, "innodb_max_dirty_pages_pct_lwm": 90, "innodb_purge_threads": 3, "table_open_cache_instances": 25, "innodb_compression_failure_threshold_pct": 10, "innodb_change_buffering": "changes", "innodb_online_alter_log_max_size": 2737570198, "innodb_purge_batch_size": 775, "innodb_lru_scan_depth": 5062, "innodb_max_dirty_pages_pct": 16, "innodb_write_io_threads": 45, "innodb_stats_transient_sample_pages": 18, "div_precision_increment": 5, "innodb_spin_wait_delay": 55, "innodb_compression_pad_pct_max": 16, "innodb_read_ahead_threshold": 25, "innodb_concurrency_tickets": 816721938, "innodb_log_write_ahead_size": 12904, "innodb_change_buffer_max_size": 16, "long_query_time": 10, "query_cache_limit": 27407513, "max_user_connections": 3772479810, "key_cache_block_size": 12338, "ngram_token_size": 5, "innodb_autoextend_increment": 871, "innodb_sort_buffer_size": 35046327, "join_buffer_size": 484431509, "host_cache_size": 21512, "net_write_timeout": 94, "binlog_row_image": "minimal", "table_open_cache": 107883, "innodb_adaptive_max_sleep_delay": 740918, "innodb_ft_total_cache_size": 1083368841, "read_buffer_size": 870504283, "eq_range_index_dive_limit": 3663756588, "innodb_flush_log_at_timeout": 2360, "key_cache_age_threshold": 10439, "range_alloc_block_size": 49248, "innodb_ft_sort_pll_degree": 5, "innodb_ft_min_token_size": 13, "innodb_read_io_threads": 36, "max_binlog_size": 130607830, "innodb_table_locks": "OFF", "innodb_ft_result_cache_limit": 595694091, "innodb_purge_rseg_truncate_frequency": 39, "max_binlog_stmt_cache_size": 5258954440786220032, "table_definition_cache": 477208, "innodb_thread_sleep_delay": 504733, "innodb_adaptive_flushing_lwm": 21, "max_write_lock_count": 6405038671284358144, "innodb_io_capacity_max": 2774, "innodb_max_purge_lag": 2731421017, "sync_binlog": 2743919364, "optimizer_search_depth": 54}
     #dbenv.step(knobs)
     # SMAC
-    #task_queue = TaskQueue()
-    #task_queue.add((smac_tuning_task, ()))
-    #task_queue.run()
-    # LLM
     # task_queue = TaskQueue()
-    # task_queue.add((llm_tuning_task, ()))
+    # task_queue.add((smac_tuning_task, ()))
     # task_queue.run()
-    llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 5, None, 100, ['innodb_buffer_pool_size','innodb_write_io_threads','innodb_doublewrite','innodb_stats_transient_sample_pages','innodb_lru_scan_depth'], 'tps', 10, 5)
-    llm_tuner._get_next_point_llm_assist()
+    # LLM
+    task_queue = TaskQueue()
+    task_queue.add((llm_tuning_end2end, ()))
+    task_queue.run()
+    #llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 5, None, 100, ['innodb_buffer_pool_size','innodb_write_io_threads','innodb_doublewrite','innodb_stats_transient_sample_pages','innodb_lru_scan_depth'], 'tps', 10, 5)
+    #llm_tuner._get_next_point_llm_assist()
     #llm_tuner._knob_prune(5)
     #print(json.dumps(llm_tuner.knobs_detail))
     #llm_tuner._get_next_point()
