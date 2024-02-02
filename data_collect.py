@@ -17,7 +17,7 @@ from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_model
 import gpytorch
 from gpytorch.mlls import ExactMarginalLogLikelihood
-from botorch.acquisition import UpperConfidenceBound, ExpectedImprovement
+from botorch.acquisition import UpperConfidenceBound, ExpectedImprovement, qKnowledgeGradient
 from botorch.optim import optimize_acqf
 from ConfigSpace import Configuration, ConfigurationSpace
 from smac import HyperparameterOptimizationFacade, Scenario
@@ -26,6 +26,7 @@ from ConfigSpace import Categorical, Configuration, ConfigurationSpace, Float, I
 from pathlib import Path
 from openai import OpenAI
 from mab import ThompsonSamplingBandit
+import requests
 
 def transform_knobs2vector(knobs_detail, knobs):
     keys = list(knobs.keys())
@@ -65,6 +66,23 @@ def transform_knobs2cnf(knobs_detail, knobs):
         else:
             pass
     return knobs
+
+def proxy_chat(system_content, prompt):
+    url = "https://api.openai-hk.com/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "hk-sre71y10000164104f4af3ec864d22692a031c189af7ccdb"
+    }
+    data = {
+        "model": "gpt-3.5-turbo-1106",
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": prompt}
+        ]
+    }
+    response = requests.post(url, headers=headers, data=json.dumps(data).encode('utf-8') )
+    result = response.content.decode("utf-8")
+    return json.loads(result)
 
 class Tuner():
     def __init__(self, knobs_config_path, knob_nums, dbenv, bugets, knob_idxs=None):
@@ -253,8 +271,12 @@ class LLMTuner(Tuner):
         self.objective = objective
         self.warm_start_times = warm_start_times
         self.prune_nums = prune_nums
-        api_key = "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"
-        self.client = OpenAI(api_key=api_key)
+        self.proxy = True
+        # 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
+        # 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
+        # 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
+        api_key = "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"
+        self.client = proxy_chat if self.proxy else OpenAI(api_key=api_key)
         self.system_content = '''You will be helping me with the knob tuning task for {0} database. '''
         self.user_content_prune = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please give the {8} knobs that have the greatest impact on the performance of the database. You should give these top-{8} knobs by json style.  The given knobs must be included in the previously given knobs. Just give the json without any other extra output.'''
         self.user_content_ws_samples = '''The specific information for the knobs is: {0}. The specific information for the machine on which the {1} works is: {2} cores {3} RAM and {4} disk. The specific information for the workload is: {5} size {6}. The goal of the current tuning task is to optimize {7}, please suggest {8} diverse yet effective configurations to initiate a Bayesian Optimization process for knobs tuning. You mustn't include “None” in the configurations. Your response should include a list of dictionaries, where each dictionary describes one recommended configuration.Just give the dictionaries without any other extra output.'''
@@ -305,14 +327,17 @@ class LLMTuner(Tuner):
         count = 10
         while count > 0:
             try:
-                completion = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo-1106",
-                    messages=[
-                        {"role": "system", "content": system_content},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                strs = completion.choices[0].message.content
+                if self.proxy:
+                    completion = self.client(system_content, prompt)
+                else:
+                    completion = self.client.chat.completions.create(
+                        model="gpt-3.5-turbo-1106",
+                        messages=[
+                            {"role": "system", "content": system_content},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                strs = completion["choices"][0]["message"]["content"] if self.proxy else completion.choices[0].message.content
                 pattern = re.compile(r'\{.*?\}')
                 matches = pattern.findall(strs)
                 samples = []
@@ -356,23 +381,26 @@ class LLMTuner(Tuner):
         count = 10
         while True:
             try:
-                completion = self.client.chat.completions.create(
-                    model="gpt-3.5-turbo-1106",
-                    messages=[
-                        {"role": "system", "content": system_content},
-                        {"role": "user", "content": prompt}
-                    ]
-                )
-                strs = completion.choices[0].message.content
+                if self.proxy:
+                    completion = self.client(system_content, prompt)
+                else:
+                    completion = self.client.chat.completions.create(
+                        model="gpt-3.5-turbo-1106",
+                        messages=[
+                            {"role": "system", "content": system_content},
+                            {"role": "user", "content": prompt}
+                        ]
+                    )
+                strs = completion["choices"][0]["message"]["content"] if self.proxy else completion.choices[0].message.content
                 pattern = re.compile(r'\{.*?\}')
                 matches = pattern.findall(strs)
                 samples = []
                 for match in matches:
                     samples.append(eval(match))
+                if len(samples) > 0:
+                    break
             except Exception as e:
                 print(e)
-            if len(samples) > 0:
-                break
             count -= 1
 
         return samples[0]
@@ -382,14 +410,17 @@ class LLMTuner(Tuner):
         system_content = self.system_content.format("MySQL")
         obj_str = 'throughput' if self.objective == 'tps' else 'latency'
         user_content = self.user_content_prune.format(knobs_str, "MySQL", '4', '8GB', '1TB', '2GB', 'TPC-C', obj_str, nums)
-        completion = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_content}
-            ]
-        )
-        strs = completion.choices[0].message.content
+        if self.proxy:
+            completion = self.client(system_content, user_content)
+        else:
+            completion = self.client.chat.completions.create(
+                model="gpt-3.5-turbo-1106",
+                messages=[
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_content}
+                ]
+            )
+        strs = completion["choices"][0]["message"]["content"] if self.proxy else completion.choices[0].message.content
         keys = []
         for key in list(self.knobs_detail.keys()):
             if key in strs:
@@ -407,15 +438,24 @@ class LLMTuner(Tuner):
         system_content = self.system_content.format("MySQL")
         obj_str = 'throughput' if self.objective == 'tps' else 'latency'
         user_content = self.user_content_ws_samples.format(knobs_str, "MySQL", '4', '8GB', '1TB', '2GB', 'TPC-C', obj_str, nums)
-        completion = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
-            messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": user_content}
-            ]
-        )
-        print(completion.choices[0].message.content)
-        knobs = eval(completion.choices[0].message.content)
+        if self.proxy:
+            completion = self.client(system_content, user_content)
+        else:
+            completion = self.client.chat.completions.create(
+                model="gpt-3.5-turbo-1106",
+                messages=[
+                    {"role": "system", "content": system_content},
+                    {"role": "user", "content": user_content}
+                ]
+            )
+        strs = completion["choices"][0]["message"]["content"] if self.proxy else completion.choices[0].message.content
+        print(strs)
+        pattern = re.compile(r'\{.*?\}')
+        matches = pattern.findall(strs)
+        samples = []
+        for match in matches:
+            samples.append(eval(match))
+        knobs = samples
         return knobs
     
     def _get_next_point_origin(self):
@@ -920,7 +960,7 @@ if __name__ == '__main__':
     # task_queue.run()
     # LLM
     task_queue = TaskQueue()
-    task_queue.add((llm_tuning_end2end, ()))
+    task_queue.add((llm_tuning_task, ()))
     task_queue.run()
     #llm_tuner = LLMTuner('/home/root3/Tuning/mysql_knobs_llm.json', 5, None, 100, ['innodb_buffer_pool_size','innodb_write_io_threads','innodb_doublewrite','innodb_stats_transient_sample_pages','innodb_lru_scan_depth'], 'tps', 10, 5)
     #llm_tuner._get_next_point_llm_assist()
